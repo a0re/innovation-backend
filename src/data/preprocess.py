@@ -208,6 +208,9 @@ def apply_smote_balancing(X_train: np.ndarray, y_train: np.ndarray) -> Tuple[np.
     """
     Apply SMOTE (Synthetic Minority Oversampling Technique) to balance the dataset.
     
+    NOTE: This function is available but not currently used in the pipeline.
+    It could be integrated into the training pipeline for better class balancing.
+    
     Args:
         X_train: Training features
         y_train: Training labels
@@ -320,8 +323,9 @@ def preprocess_data(input_file: str = None, df: pd.DataFrame = None) -> Tuple[pd
     # Step 4: Remove duplicates
     data = remove_duplicates(data)
     
-    # Step 5: Balance dataset (optional)
-    # data = balance_dataset(data, max_samples_per_class=5000)
+    # Step 5: Balance dataset (CRITICAL - severe class imbalance detected)
+    # Current imbalance: 15.8:1 (ham:spam) - this hurts model performance
+    data = balance_dataset(data, max_samples_per_class=5000)
     
     # Step 6: Split data
     train_df, val_df, test_df = split_data(
