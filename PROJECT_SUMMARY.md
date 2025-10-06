@@ -2,7 +2,7 @@
 
 ## 🎯 Project Overview
 
-This project implements a complete machine learning pipeline for spam detection that classifies text messages as spam or not spam, and performs K-Means clustering to identify spam subtypes. The project was designed for academic submission with clean, commented code and comprehensive documentation.
+This project implements a comprehensive machine learning pipeline for spam detection that classifies text messages as spam or not spam, performs K-Means clustering to identify spam subtypes, and includes advanced anomaly detection techniques. The project was enhanced with real datasets, advanced feature engineering, and sophisticated analysis tools for academic submission with clean, commented code and comprehensive documentation.
 
 ## 📁 Project Structure
 
@@ -16,6 +16,7 @@ src/
 │   ├── train.py           # Model training with grid search
 │   ├── evaluate.py        # Model evaluation and performance analysis
 │   ├── cluster.py         # K-Means clustering analysis
+│   ├── anomaly_detection.py # Advanced anomaly detection
 │   └── predict.py         # CLI prediction tool
 ├── utils/
 │   ├── config.yaml        # Configuration parameters
@@ -92,6 +93,19 @@ README.md                      # Project documentation
 - **Usage**: `python src/models/predict.py "message text"`
 - **Features**: Confidence scores, emoji indicators, interactive mode
 - **Test Results**: Successfully classified sample messages with high confidence
+
+## 🆕 Enhanced Features
+
+### **Advanced Data Processing**
+- **Real Dataset**: Now uses actual SMS Spam Collection (5,572 messages) instead of sample data
+- **SMOTE Balancing**: Handles class imbalance with synthetic minority oversampling
+- **22+ Engineered Features**: Message length, character ratios, pattern detection, etc.
+
+
+### **Enhanced Visualizations**
+- **Spam Trigger Words**: Identifies words that strongly indicate spam
+- **Advanced Message Characteristics**: Comprehensive feature analysis
+- **TF-IDF Feature Analysis**: Feature importance and differentiation
 
 ## 📊 Key Results
 

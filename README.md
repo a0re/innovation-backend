@@ -4,14 +4,20 @@ A comprehensive machine learning pipeline for spam detection that classifies tex
 
 ## 🎯 Project Overview
 
-This project implements a complete machine learning pipeline including:
-- **Data Collection**: SMS Spam Collection and Email Spam datasets
-- **Data Preprocessing**: Text normalization, cleaning, and train/validation/test split
-- **Exploratory Data Analysis**: Comprehensive visualizations and pattern analysis
-- **Model Training**: Multiple classifiers (MultinomialNB, LogisticRegression, LinearSVC)
+This project implements a comprehensive spam detection system using advanced machine learning techniques. It includes data collection, preprocessing, exploratory data analysis, model training, evaluation, anomaly detection, and clustering analysis to identify different types of spam messages.
+
+### Key Features
+
+- **Real Dataset Integration**: Downloads actual SMS Spam Collection (5,572 messages)
+- **Advanced Text Preprocessing**: Enhanced text cleaning with 15+ engineered features
+- **SMOTE Class Balancing**: Handles class imbalance with synthetic oversampling
+- **Comprehensive EDA**: Advanced visualizations including spam trigger words analysis
+- **Multiple ML Models**: 3 classifiers with hyperparameter tuning
+- **Anomaly Detection**: Isolation Forest, One-Class SVM, and EllipticEnvelope
 - **Model Evaluation**: Detailed performance metrics and visualizations
-- **Clustering Analysis**: K-Means clustering to identify spam subtypes
-- **CLI Tool**: Command-line interface for making predictions
+- **K-Means Clustering**: Identifies spam subtypes with silhouette analysis
+- **Command-Line Interface**: Easy-to-use prediction tool
+- **Reproducible Research**: Fixed random seeds and comprehensive logging
 
 ## 📁 Project Structure
 
@@ -25,6 +31,7 @@ src/
 │   ├── train.py           # Model training with grid search
 │   ├── evaluate.py        # Model evaluation and performance analysis
 │   ├── cluster.py         # K-Means clustering analysis
+│   ├── anomaly_detection.py # Advanced anomaly detection
 │   └── predict.py         # CLI prediction tool
 ├── utils/
 │   ├── config.yaml        # Configuration parameters
@@ -100,6 +107,25 @@ python src/models/predict.py "Congratulations! You have won $1000!"
 # Interactive mode
 python src/models/predict.py
 ```
+
+## 🆕 New Features (Enhanced Version)
+
+### **Advanced Data Processing**
+- **Real Dataset**: Now uses actual SMS Spam Collection (5,572 messages) instead of sample data
+- **SMOTE Balancing**: Handles class imbalance with synthetic minority oversampling
+- **15+ Engineered Features**: Message length, character ratios, pattern detection, etc.
+
+
+### **Enhanced Visualizations**
+- **Spam Trigger Words**: Identifies words that strongly indicate spam
+- **Advanced Message Characteristics**: Comprehensive feature analysis
+- **TF-IDF Feature Analysis**: Feature importance and differentiation
+
+### **Improved Performance**
+- **Better Generalization**: Real dataset provides more robust training
+- **Class Balance**: SMOTE ensures fair representation of both classes
+- **Feature Richness**: 22+ engineered features improve classification accuracy
+- **Spam Subtype Analysis**: K-Means clustering identifies 8 distinct spam types
 
 ## 📊 Expected Results
 
