@@ -74,6 +74,11 @@ def preprocess_message(message: str) -> str:
     # Replace numbers with placeholder
     message = re.sub(r'\b\d+\b', '<NUM>', message)
     
+    # Fix concatenated NUMBER patterns (common in preprocessed datasets)
+    message = re.sub(r'NUMBER([a-zA-Z])', r'NUMBER \1', message, flags=re.IGNORECASE)
+    message = re.sub(r'([a-zA-Z])NUMBER', r'\1 NUMBER', message, flags=re.IGNORECASE)
+    message = re.sub(r'NUMBER\s*NUMBER', 'NUMBER', message, flags=re.IGNORECASE)
+    
     # Remove extra whitespace
     message = re.sub(r'\s+', ' ', message)
     
@@ -81,6 +86,37 @@ def preprocess_message(message: str) -> str:
     message = message.strip()
     
     return message
+
+def get_dynamic_threshold(message: str) -> float:
+    """
+    Get dynamic threshold based on message characteristics.
+    
+    Args:
+        message: Message text
+        
+    Returns:
+        Dynamic threshold for spam classification
+    """
+    import re
+    
+    # Base threshold
+    threshold = 0.5
+    
+    # Lower threshold (more likely to classify as spam) for suspicious patterns
+    suspicious_patterns = [
+        r'\b(?:verify|suspended|compromised|security|account|bank|paypal)\b',
+        r'\b(?:prince|nigerian|inheritance|lottery|prize|million)\b',
+        r'\b(?:urgent|immediately|click here|verify now)\b',
+        r'\b(?:password|pin|ssn|bank account|credit card)\b',
+        r'\$\d+|\£\d+|million|thousand|cash|money'
+    ]
+    
+    for pattern in suspicious_patterns:
+        if re.search(pattern, message, re.IGNORECASE):
+            threshold -= 0.1  # Lower threshold for suspicious content
+    
+    # Ensure threshold is between 0.3 and 0.7
+    return max(0.3, min(0.7, threshold))
 
 def predict_message(model: object, message: str) -> tuple:
     """
@@ -99,19 +135,27 @@ def predict_message(model: object, message: str) -> tuple:
     if not processed_message:
         return "not_spam", 0.5
     
-    # Make prediction
-    prediction = model.predict([processed_message])[0]
-    
-    # Get confidence score (probability)
+    # Get spam probability
     try:
         # For models with predict_proba
         probabilities = model.predict_proba([processed_message])[0]
-        confidence = max(probabilities)
+        spam_prob = probabilities[1] if len(probabilities) > 1 else 0.5
     except AttributeError:
         # For models without predict_proba (like LinearSVC)
         decision_scores = model.decision_function([processed_message])
         # Convert decision function to probability using sigmoid
-        confidence = 1 / (1 + abs(decision_scores[0]))
+        spam_prob = 1 / (1 + abs(decision_scores[0]))
+    
+    # Use dynamic threshold
+    threshold = get_dynamic_threshold(message)
+    
+    # Make prediction based on dynamic threshold
+    if spam_prob >= threshold:
+        prediction = "spam"
+        confidence = spam_prob
+    else:
+        prediction = "not_spam"
+        confidence = 1 - spam_prob
     
     return prediction, confidence
 
