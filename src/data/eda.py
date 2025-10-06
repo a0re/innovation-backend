@@ -372,6 +372,248 @@ def run_eda(input_file: str = None, df: pd.DataFrame = None) -> None:
     
     logger.info("EDA completed successfully!")
 
+def plot_spam_trigger_words(df: pd.DataFrame, top_n: int = 20) -> None:
+    """
+    Identify and visualize words that strongly indicate spam.
+    
+    Args:
+        df: DataFrame with text and label columns
+        top_n: Number of top spam trigger words to display
+    """
+    logger.info("Creating spam trigger words analysis...")
+    
+    # Get all words from spam and ham messages
+    spam_words = []
+    ham_words = []
+    
+    for _, row in df.iterrows():
+        words = row['text'].lower().split()
+        if row['label'] == 'spam':
+            spam_words.extend(words)
+        else:
+            ham_words.extend(words)
+    
+    # Count word frequencies
+    spam_freq = Counter(spam_words)
+    ham_freq = Counter(ham_words)
+    
+    # Calculate spam ratio for each word
+    all_words = set(spam_freq.keys()) | set(ham_freq.keys())
+    spam_ratios = {}
+    
+    for word in all_words:
+        spam_count = spam_freq.get(word, 0)
+        ham_count = ham_freq.get(word, 0)
+        total = spam_count + ham_count
+        
+        # Only consider words that appear at least 5 times
+        if total >= 5:
+            spam_ratios[word] = spam_count / total
+    
+    # Get top spam trigger words
+    top_spam_words = sorted(spam_ratios.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    words, ratios = zip(*top_spam_words)
+    
+    # Create plot
+    plt.figure(figsize=(12, 8))
+    bars = plt.barh(range(len(words)), ratios, color='red', alpha=0.7)
+    plt.yticks(range(len(words)), words)
+    plt.xlabel('Spam Ratio (Spam Count / Total Count)')
+    plt.title(f'Top {top_n} Spam Trigger Words')
+    plt.gca().invert_yaxis()
+    
+    # Add value labels on bars
+    for i, (bar, ratio) in enumerate(zip(bars, ratios)):
+        plt.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
+                f'{ratio:.3f}', va='center', fontsize=9)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print detailed analysis
+    print(f"\nTop {top_n} Spam Trigger Words:")
+    print("-" * 50)
+    for word, ratio in top_spam_words:
+        spam_count = spam_freq.get(word, 0)
+        ham_count = ham_freq.get(word, 0)
+        print(f"{word:15} | Ratio: {ratio:.3f} | Spam: {spam_count:3d} | Ham: {ham_count:3d}")
+
+def plot_advanced_message_characteristics(df: pd.DataFrame) -> None:
+    """
+    Create comprehensive message characteristic analysis.
+    
+    Args:
+        df: DataFrame with text and label columns
+    """
+    logger.info("Creating advanced message characteristics analysis...")
+    
+    # Calculate additional features
+    df_analysis = df.copy()
+    df_analysis['message_length'] = df_analysis['text'].str.len()
+    df_analysis['word_count'] = df_analysis['text'].str.split().str.len()
+    df_analysis['uppercase_ratio'] = df_analysis['text'].str.count(r'[A-Z]') / df_analysis['text'].str.len()
+    df_analysis['digit_ratio'] = df_analysis['text'].str.count(r'\d') / df_analysis['text'].str.len()
+    df_analysis['special_chars'] = df_analysis['text'].str.count(r'[!@#$%^&*(),.?":{}|<>]')
+    df_analysis['exclamations'] = df_analysis['text'].str.count('!')
+    df_analysis['questions'] = df_analysis['text'].str.count(r'\?')
+    df_analysis['caps_words'] = df_analysis['text'].str.count(r'\b[A-Z]{2,}\b')
+    df_analysis['has_url'] = df_analysis['text'].str.contains(r'http', case=False).astype(int)
+    df_analysis['has_phone'] = df_analysis['text'].str.contains(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b').astype(int)
+    
+    # Create subplots
+    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
+    axes = axes.flatten()
+    
+    # Define characteristics to plot
+    characteristics = [
+        ('message_length', 'Message Length (characters)'),
+        ('word_count', 'Word Count'),
+        ('uppercase_ratio', 'Uppercase Ratio'),
+        ('digit_ratio', 'Digit Ratio'),
+        ('special_chars', 'Special Characters Count'),
+        ('exclamations', 'Exclamation Marks Count'),
+        ('questions', 'Question Marks Count'),
+        ('caps_words', 'Capitalized Words Count'),
+        ('has_url', 'Contains URL (0/1)')
+    ]
+    
+    for idx, (col, title) in enumerate(characteristics):
+        if idx >= len(axes):
+            break
+            
+        ax = axes[idx]
+        
+        # Plot histograms for each class
+        for label in df_analysis['label'].unique():
+            subset = df_analysis[df_analysis['label'] == label]
+            ax.hist(subset[col], alpha=0.7, label=label, bins=30, density=True)
+        
+        ax.set_title(title)
+        ax.set_xlabel(title)
+        ax.set_ylabel('Density')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+    
+    # Hide unused subplots
+    for idx in range(len(characteristics), len(axes)):
+        axes[idx].set_visible(False)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print summary statistics
+    print("\nMessage Characteristics Summary:")
+    print("=" * 60)
+    
+    for col, title in characteristics:
+        print(f"\n{title}:")
+        for label in df_analysis['label'].unique():
+            subset = df_analysis[df_analysis['label'] == label]
+            mean_val = subset[col].mean()
+            std_val = subset[col].std()
+            print(f"  {label:8}: Mean={mean_val:.3f}, Std={std_val:.3f}")
+
+def plot_tfidf_feature_analysis(df: pd.DataFrame, max_features: int = 1000) -> None:
+    """
+    Analyze TF-IDF features and their importance.
+    
+    Args:
+        df: DataFrame with text and label columns
+        max_features: Maximum number of features to analyze
+    """
+    logger.info("Creating TF-IDF feature analysis...")
+    
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    
+    # Create TF-IDF vectorizer
+    vectorizer = TfidfVectorizer(
+        max_features=max_features,
+        ngram_range=(1, 2),
+        stop_words='english',
+        lowercase=True
+    )
+    
+    # Fit and transform
+    try:
+        tfidf_matrix = vectorizer.fit_transform(df['text'])
+        feature_names = vectorizer.get_feature_names_out()
+    except Exception as e:
+        logger.error(f"Error in TF-IDF vectorization: {e}")
+        return
+    
+    # Calculate mean TF-IDF scores for each class
+    spam_indices = df['label'] == 'spam'
+    ham_indices = df['label'] == 'not_spam'
+    
+    # Handle case where there might be no spam or ham messages
+    try:
+        if spam_indices.sum() > 0:
+            spam_tfidf = tfidf_matrix[spam_indices].mean(axis=0).A1
+        else:
+            spam_tfidf = np.zeros(tfidf_matrix.shape[1])
+        
+        if ham_indices.sum() > 0:
+            ham_tfidf = tfidf_matrix[ham_indices].mean(axis=0).A1
+        else:
+            ham_tfidf = np.zeros(tfidf_matrix.shape[1])
+    except Exception as e:
+        logger.error(f"Error calculating TF-IDF means: {e}")
+        return
+    
+    # Create DataFrame for analysis
+    tfidf_df = pd.DataFrame({
+        'feature': feature_names,
+        'spam_tfidf': spam_tfidf,
+        'ham_tfidf': ham_tfidf
+    })
+    
+    # Calculate difference and ratio
+    tfidf_df['difference'] = tfidf_df['spam_tfidf'] - tfidf_df['ham_tfidf']
+    tfidf_df['ratio'] = tfidf_df['spam_tfidf'] / (tfidf_df['ham_tfidf'] + 1e-8)
+    
+    # Get top features for each class
+    top_spam_features = tfidf_df.nlargest(20, 'spam_tfidf')
+    top_ham_features = tfidf_df.nlargest(20, 'ham_tfidf')
+    top_differentiating = tfidf_df.nlargest(20, 'difference')
+    
+    # Create plots
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+    
+    # Top spam features
+    axes[0].barh(range(len(top_spam_features)), top_spam_features['spam_tfidf'])
+    axes[0].set_yticks(range(len(top_spam_features)))
+    axes[0].set_yticklabels(top_spam_features['feature'])
+    axes[0].set_title('Top TF-IDF Features in Spam')
+    axes[0].set_xlabel('Mean TF-IDF Score')
+    
+    # Top ham features
+    axes[1].barh(range(len(top_ham_features)), top_ham_features['ham_tfidf'])
+    axes[1].set_yticks(range(len(top_ham_features)))
+    axes[1].set_yticklabels(top_ham_features['feature'])
+    axes[1].set_title('Top TF-IDF Features in Ham')
+    axes[1].set_xlabel('Mean TF-IDF Score')
+    
+    # Most differentiating features
+    axes[2].barh(range(len(top_differentiating)), top_differentiating['difference'])
+    axes[2].set_yticks(range(len(top_differentiating)))
+    axes[2].set_yticklabels(top_differentiating['feature'])
+    axes[2].set_title('Most Differentiating Features (Spam - Ham)')
+    axes[2].set_xlabel('TF-IDF Difference')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print summary
+    print("\nTF-IDF Feature Analysis Summary:")
+    print("=" * 50)
+    print(f"Total features analyzed: {len(feature_names)}")
+    print(f"Features with higher spam TF-IDF: {(tfidf_df['difference'] > 0).sum()}")
+    print(f"Features with higher ham TF-IDF: {(tfidf_df['difference'] < 0).sum()}")
+    
+    print(f"\nTop 10 Most Differentiating Features:")
+    for _, row in top_differentiating.head(10).iterrows():
+        print(f"  {row['feature']:20} | Diff: {row['difference']:.4f} | Ratio: {row['ratio']:.2f}")
+
 if __name__ == "__main__":
     # Run EDA
     run_eda()
