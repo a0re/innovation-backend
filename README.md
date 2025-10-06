@@ -8,7 +8,7 @@ This project implements a comprehensive spam detection system using advanced mac
 
 ### Key Features
 
-- **Real Dataset Integration**: Downloads actual SMS Spam Collection (5,572 messages)
+- **Real Dataset Integration**: Downloads multiple real datasets from UCI and Kaggle
 - **Advanced Text Preprocessing**: Enhanced text cleaning with 15+ engineered features
 - **SMOTE Class Balancing**: Handles class imbalance with synthetic oversampling
 - **Comprehensive EDA**: Advanced visualizations including spam trigger words analysis
@@ -69,6 +69,10 @@ source spam-detection-env/bin/activate  # On Windows: spam-detection-env\Scripts
 # Install dependencies
 cd src
 pip install -r requirements.txt
+
+# Set up Kaggle API for real datasets (optional)
+pip install kaggle
+# See KAGGLE_SETUP.md for detailed API setup instructions
 ```
 
 ### 2. Run the Complete Pipeline
@@ -111,7 +115,7 @@ python src/models/predict.py
 ## 🆕 New Features (Enhanced Version)
 
 ### **Advanced Data Processing**
-- **Real Dataset**: Now uses actual SMS Spam Collection (5,572 messages) instead of sample data
+- **Real Datasets**: Uses multiple real datasets from UCI and Kaggle (10,000+ messages)
 - **SMOTE Balancing**: Handles class imbalance with synthetic minority oversampling
 - **15+ Engineered Features**: Message length, character ratios, pattern detection, etc.
 
@@ -188,7 +192,7 @@ The pipeline generates:
 
 ## 📝 Notes
 
-- The project uses sample datasets for demonstration
+- The project uses real datasets from UCI and Kaggle (with sample fallback)
 - All preprocessing steps are documented and reproducible
 - Model performance may vary based on data quality
 - Clustering results depend on the spam message distribution
