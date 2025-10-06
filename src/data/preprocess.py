@@ -34,6 +34,21 @@ def clean_text(text: str) -> str:
     # Convert to lowercase
     text = text.lower()
     
+    # Remove email headers (common in Enron dataset)
+    # Remove message-id, date, from, to, subject, etc.
+    text = re.sub(r'message-id:\s*<[^>]+>', '', text)
+    text = re.sub(r'date:\s*[^,]+,\s*\d+\s+\w+\s+\d+\s+\d+:\d+:\d+\s*[+-]\d+', '', text)
+    text = re.sub(r'from:\s*<[^>]+>', '', text)
+    text = re.sub(r'to:\s*<[^>]+>', '', text)
+    text = re.sub(r'subject:\s*[^\n]+', '', text)
+    text = re.sub(r'cc:\s*<[^>]+>', '', text)
+    text = re.sub(r'bcc:\s*<[^>]+>', '', text)
+    text = re.sub(r'reply-to:\s*<[^>]+>', '', text)
+    text = re.sub(r'content-type:\s*[^\n]+', '', text)
+    text = re.sub(r'content-transfer-encoding:\s*[^\n]+', '', text)
+    text = re.sub(r'mime-version:\s*[^\n]+', '', text)
+    text = re.sub(r'x-[^:]+:\s*[^\n]+', '', text)  # Remove X-headers
+    
     # Replace URLs with placeholder
     text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', 
                   '<URL>', text)
@@ -48,6 +63,14 @@ def clean_text(text: str) -> str:
     
     # Replace numbers with placeholder
     text = re.sub(r'\b\d+\b', '<NUM>', text)
+    
+    # Fix concatenated NUMBER patterns (common in preprocessed datasets)
+    # Replace patterns like "NUMBERabc" or "abcNUMBER" with "NUMBER abc" or "abc NUMBER"
+    text = re.sub(r'NUMBER([a-zA-Z])', r'NUMBER \1', text, flags=re.IGNORECASE)
+    text = re.sub(r'([a-zA-Z])NUMBER', r'\1 NUMBER', text, flags=re.IGNORECASE)
+    
+    # Fix multiple consecutive NUMBERs
+    text = re.sub(r'NUMBER\s*NUMBER', 'NUMBER', text, flags=re.IGNORECASE)
     
     # Remove extra whitespace
     text = re.sub(r'\s+', ' ', text)
@@ -99,6 +122,13 @@ def extract_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     df_features['has_win'] = df_features['text'].str.contains(r'\bwin\b', case=False).astype(int)
     df_features['has_urgent'] = df_features['text'].str.contains(r'\burgent\b', case=False).astype(int)
     
+    # Phishing and scam detection features
+    df_features['has_phishing_keywords'] = df_features['text'].str.contains(r'\b(?:verify|suspended|compromised|security|account|bank|paypal|amazon|microsoft|apple)\b', case=False).astype(int)
+    df_features['has_scam_keywords'] = df_features['text'].str.contains(r'\b(?:prince|nigerian|inheritance|lottery|prize|million|transfer|help|urgent|immediately)\b', case=False).astype(int)
+    df_features['has_suspicious_domains'] = df_features['text'].str.contains(r'\b(?:security|verify|update|account|bank|paypal|amazon|microsoft|apple)\.(?:com|net|org|info)\b', case=False).astype(int)
+    df_features['has_money_mentions'] = df_features['text'].str.contains(r'\b(?:\$|£|€|dollar|pound|euro|million|thousand|cash|money|fund|transfer|deposit)\b', case=False).astype(int)
+    df_features['has_personal_info_request'] = df_features['text'].str.contains(r'\b(?:password|pin|ssn|social security|bank account|credit card|personal|details|information)\b', case=False).astype(int)
+    
     # Text complexity
     df_features['unique_word_ratio'] = df_features['text'].str.split().apply(lambda x: len(set(x)) / len(x) if len(x) > 0 else 0)
     df_features['sentence_count'] = df_features['text'].str.count(r'[.!?]+')
@@ -107,7 +137,7 @@ def extract_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     # Replace NaN values with 0
     df_features = df_features.fillna(0)
     
-    logger.info(f"Extracted {len(df_features.columns) - len(df.columns)} additional features")
+    logger.info(f"Extracted {len(df_features.columns) - len(df.columns)} additional features (including phishing/scam detection features)")
     return df_features
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
@@ -252,7 +282,7 @@ def preprocess_data(input_file: str = None, df: pd.DataFrame = None) -> Tuple[pd
     # Load data
     if df is not None:
         data = df.copy()
-    elif input_file and os.path.exists(input_file):
+    elif input_file is not None and os.path.exists(input_file):
         data = pd.read_csv(input_file)
         logger.info(f"Loaded data from {input_file}: {len(data)} messages")
     else:
