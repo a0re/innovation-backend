@@ -1,0 +1,40 @@
+# Configuration file for spam detection project
+random_state: 42
+
+# Data paths
+data:
+  sms_spam_url: "https://archive.ics.uci.edu/ml/machine-learning-databases/00228/smsspamcollection.zip"
+  email_spam_url: "https://www.kaggle.com/datasets/balaka18/email-spam-classification-dataset"
+  output_dir: "/home/thepanable/innovation/outputs"
+
+# Preprocessing parameters
+preprocessing:
+  test_size: 0.15
+  val_size: 0.15
+  min_df: 2
+  max_features: 100000
+  ngram_range_word: [1, 2]
+  ngram_range_char: [3, 5]
+
+# Model parameters
+models:
+  multinomial_nb:
+    alpha: [0.1, 0.5, 1.0]
+  logistic_regression:
+    C: [0.5, 1, 2, 4]
+    solver: "liblinear"
+    class_weight: "balanced"
+  linear_svc:
+    C: [0.5, 1, 2, 4]
+    class_weight: "balanced"
+
+# Clustering parameters
+clustering:
+  k_values: [5, 8, 12]
+  max_iter: 100
+
+# Evaluation parameters
+evaluation:
+  cv_folds: 5
+  scoring: "f1_macro"
+  n_jobs: -1

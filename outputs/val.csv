@@ -1,0 +1,7 @@
+label,text,source
+not_spam,have a great day!,sms
+not_spam,thank you for your email. i will get back to you soon.,email
+not_spam,the project deadline has been extended to next friday.,email
+spam,congratulations! you have won $<NUM> in our lottery!,email
+spam,your account will be closed unless you verify now!,email
+spam,congratulations! you have won $<NUM> cash prize!,sms
