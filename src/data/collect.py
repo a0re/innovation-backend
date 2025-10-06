@@ -40,11 +40,25 @@ def download_sms_spam_data() -> pd.DataFrame:
             if not csv_files:
                 raise ValueError("No CSV file found in the zip archive")
             
-            # Read the first CSV file
+            # Read the first CSV file with proper encoding
             with zip_file.open(csv_files[0]) as csv_file:
-                df = pd.read_csv(csv_file, sep='\t', header=None, names=['label', 'text'])
+                # Try different encodings
+                try:
+                    df = pd.read_csv(csv_file, sep='\t', header=None, names=['label', 'text'], encoding='utf-8')
+                except UnicodeDecodeError:
+                    csv_file.seek(0)
+                    df = pd.read_csv(csv_file, sep='\t', header=None, names=['label', 'text'], encoding='latin-1')
+        
+        # Clean the data - remove any extra columns and handle encoding issues
+        df = df[['label', 'text']].copy()
+        df = df.dropna()
+        
+        # Handle encoding issues in text
+        df['text'] = df['text'].astype(str).apply(lambda x: x.encode('latin-1', errors='ignore').decode('utf-8', errors='ignore'))
         
         logger.info(f"SMS dataset loaded: {len(df)} messages")
+        logger.info(f"Spam messages: {(df['label'] == 'spam').sum()}")
+        logger.info(f"Ham messages: {(df['label'] == 'ham').sum()}")
         return df
         
     except Exception as e:
