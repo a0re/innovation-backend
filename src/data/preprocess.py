@@ -10,6 +10,8 @@ import re
 import logging
 from typing import Tuple, List
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
 from utils.helpers import load_config, ensure_dir_exists, setup_logging
 
 # Setup logging
@@ -54,6 +56,59 @@ def clean_text(text: str) -> str:
     text = text.strip()
     
     return text
+
+def extract_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extract advanced features from text data for enhanced classification.
+    
+    Args:
+        df: DataFrame with 'text' column
+        
+    Returns:
+        DataFrame with additional feature columns
+    """
+    logger.info("Extracting advanced features...")
+    
+    # Create a copy to avoid modifying original
+    df_features = df.copy()
+    
+    # Basic text statistics
+    df_features['message_length'] = df_features['text'].str.len()
+    df_features['word_count'] = df_features['text'].str.split().str.len()
+    df_features['avg_word_length'] = df_features['text'].str.split().str.len() / df_features['text'].str.split().str.len()
+    
+    # Character type ratios
+    df_features['uppercase_ratio'] = df_features['text'].str.count(r'[A-Z]') / df_features['text'].str.len()
+    df_features['lowercase_ratio'] = df_features['text'].str.count(r'[a-z]') / df_features['text'].str.len()
+    df_features['digit_ratio'] = df_features['text'].str.count(r'\d') / df_features['text'].str.len()
+    df_features['special_char_ratio'] = df_features['text'].str.count(r'[!@#$%^&*(),.?":{}|<>]') / df_features['text'].str.len()
+    df_features['punctuation_density'] = df_features['text'].str.count(r'[^\w\s]') / df_features['text'].str.len()
+    
+    # Specific character counts
+    df_features['exclamation_count'] = df_features['text'].str.count('!')
+    df_features['question_count'] = df_features['text'].str.count(r'\?')
+    df_features['caps_words'] = df_features['text'].str.count(r'\b[A-Z]{2,}\b')
+    df_features['consecutive_chars'] = df_features['text'].str.count(r'(.)\1{2,}')
+    
+    # Pattern detection
+    df_features['has_url'] = df_features['text'].str.contains(r'http', case=False).astype(int)
+    df_features['has_phone'] = df_features['text'].str.contains(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b').astype(int)
+    df_features['has_email'] = df_features['text'].str.contains(r'@').astype(int)
+    df_features['has_currency'] = df_features['text'].str.contains(r'[$£€¥]').astype(int)
+    df_features['has_free'] = df_features['text'].str.contains(r'\bfree\b', case=False).astype(int)
+    df_features['has_win'] = df_features['text'].str.contains(r'\bwin\b', case=False).astype(int)
+    df_features['has_urgent'] = df_features['text'].str.contains(r'\burgent\b', case=False).astype(int)
+    
+    # Text complexity
+    df_features['unique_word_ratio'] = df_features['text'].str.split().apply(lambda x: len(set(x)) / len(x) if len(x) > 0 else 0)
+    df_features['sentence_count'] = df_features['text'].str.count(r'[.!?]+')
+    df_features['avg_sentence_length'] = df_features['word_count'] / (df_features['sentence_count'] + 1)
+    
+    # Replace NaN values with 0
+    df_features = df_features.fillna(0)
+    
+    logger.info(f"Extracted {len(df_features.columns) - len(df.columns)} additional features")
+    return df_features
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -104,6 +159,33 @@ def balance_dataset(df: pd.DataFrame, max_samples_per_class: int = None) -> pd.D
     logger.info(f"Label distribution: {balanced_df['label'].value_counts().to_dict()}")
     
     return balanced_df
+
+def apply_smote_balancing(X_train: np.ndarray, y_train: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Apply SMOTE (Synthetic Minority Oversampling Technique) to balance the dataset.
+    
+    Args:
+        X_train: Training features
+        y_train: Training labels
+        
+    Returns:
+        Tuple of (balanced_X, balanced_y)
+    """
+    logger.info("Applying SMOTE for class balancing...")
+    
+    # Check class distribution before SMOTE
+    unique, counts = np.unique(y_train, return_counts=True)
+    logger.info(f"Class distribution before SMOTE: {dict(zip(unique, counts))}")
+    
+    # Apply SMOTE
+    smote = SMOTE(random_state=42)
+    X_balanced, y_balanced = smote.fit_resample(X_train, y_train)
+    
+    # Check class distribution after SMOTE
+    unique, counts = np.unique(y_balanced, return_counts=True)
+    logger.info(f"Class distribution after SMOTE: {dict(zip(unique, counts))}")
+    
+    return X_balanced, y_balanced
 
 def split_data(df: pd.DataFrame, test_size: float = 0.15, val_size: float = 0.15, 
                random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -187,13 +269,17 @@ def preprocess_data(input_file: str = None, df: pd.DataFrame = None) -> Tuple[pd
     data = data[data['text'].str.len() > 0]
     logger.info(f"Removed {initial_count - len(data)} empty messages")
     
-    # Step 3: Remove duplicates
+    # Step 3: Extract advanced features
+    logger.info("Step 3: Extracting advanced features...")
+    data = extract_advanced_features(data)
+    
+    # Step 4: Remove duplicates
     data = remove_duplicates(data)
     
-    # Step 4: Balance dataset (optional)
+    # Step 5: Balance dataset (optional)
     # data = balance_dataset(data, max_samples_per_class=5000)
     
-    # Step 5: Split data
+    # Step 6: Split data
     train_df, val_df, test_df = split_data(
         data, 
         test_size=config['preprocessing']['test_size'],
