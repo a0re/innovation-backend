@@ -62,3 +62,4 @@ comparison_project/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+kaggle.json
