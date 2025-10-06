@@ -43,9 +43,15 @@ def run_eda_pipeline(train_data) -> None:
     logger.info("="*60)
     
     # Import and run EDA
-    from data.eda import run_eda
+    from data.eda import run_eda, plot_spam_trigger_words, plot_advanced_message_characteristics, plot_tfidf_feature_analysis
     logger.info("Running exploratory data analysis...")
     run_eda(df=train_data)
+    
+    # Additional advanced EDA
+    logger.info("Running advanced EDA analysis...")
+    plot_spam_trigger_words(train_data)
+    plot_advanced_message_characteristics(train_data)
+    plot_tfidf_feature_analysis(train_data)
     
     logger.info("EDA pipeline completed successfully!")
 
@@ -81,12 +87,13 @@ def run_evaluation_pipeline(classifier, test_data) -> Dict[str, Any]:
     logger.info("Evaluation pipeline completed successfully!")
     return results
 
+
 def run_clustering_pipeline(train_data, val_data, test_data) -> Any:
     """
     Run clustering analysis pipeline.
     """
     logger.info("="*60)
-    logger.info("STEP 5: CLUSTERING ANALYSIS")
+    logger.info("STEP 6: CLUSTERING ANALYSIS")
     logger.info("="*60)
     
     # Import and run clustering
@@ -159,6 +166,8 @@ PROJECT OVERVIEW:
 - Complete machine learning pipeline for spam detection
 - Multiple classifier comparison with grid search optimization
 - K-Means clustering analysis for spam subtype identification
+- Advanced feature engineering with 22 engineered features
+- SMOTE class balancing for imbalanced datasets
 - Command-line prediction tool
 
 BEST MODEL RESULTS:
