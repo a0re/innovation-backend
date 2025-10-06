@@ -13,8 +13,11 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from scipy.sparse import hstack
 from utils.helpers import load_config, ensure_dir_exists, setup_logging, save_model
 
 # Setup logging
@@ -76,21 +79,26 @@ class SpamClassifier:
         """
         Create model pipelines with TF-IDF vectorization.
         
+        NOTE: Currently only uses TF-IDF features from text column.
+        The 27 engineered features created in preprocessing are NOT used.
+        To use them, this pipeline needs to be updated with ColumnTransformer.
+        
         Returns:
             Dictionary of model pipelines
         """
         logger.info("Creating model pipelines...")
+        logger.warning("⚠️  WARNING: Only using TF-IDF features. 27 engineered features are being ignored!")
         
         vectorizers = self.create_vectorizers()
         models = {}
         
-        # Multinomial Naive Bayes
+        # Multinomial Naive Bayes (TF-IDF ONLY - NOT USING ENGINEERED FEATURES)
         models['multinomial_nb'] = Pipeline([
             ('tfidf', vectorizers['word_tfidf']),
             ('classifier', MultinomialNB())
         ])
         
-        # Logistic Regression
+        # Logistic Regression (TF-IDF ONLY - NOT USING ENGINEERED FEATURES)
         models['logistic_regression'] = Pipeline([
             ('tfidf', vectorizers['word_tfidf']),
             ('classifier', LogisticRegression(
@@ -100,7 +108,7 @@ class SpamClassifier:
             ))
         ])
         
-        # Linear SVM
+        # Linear SVM (TF-IDF ONLY - NOT USING ENGINEERED FEATURES)
         models['linear_svc'] = Pipeline([
             ('tfidf', vectorizers['word_tfidf']),
             ('classifier', LinearSVC(

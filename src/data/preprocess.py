@@ -95,25 +95,31 @@ def extract_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     # Create a copy to avoid modifying original
     df_features = df.copy()
     
-    # Basic text statistics
+    # =============================================================================
+    # BASIC FEATURES - CURRENTLY NOT USED IN TRAINING PIPELINE
+    # =============================================================================
+    # These features are created but NOT used by the current TF-IDF-only training
+    # =============================================================================
+    
+    # Basic text statistics (NOT USED IN CURRENT TRAINING)
     df_features['message_length'] = df_features['text'].str.len()
     df_features['word_count'] = df_features['text'].str.split().str.len()
     df_features['avg_word_length'] = df_features['text'].str.split().str.len() / df_features['text'].str.split().str.len()
     
-    # Character type ratios
+    # Character type ratios (NOT USED IN CURRENT TRAINING)
     df_features['uppercase_ratio'] = df_features['text'].str.count(r'[A-Z]') / df_features['text'].str.len()
     df_features['lowercase_ratio'] = df_features['text'].str.count(r'[a-z]') / df_features['text'].str.len()
     df_features['digit_ratio'] = df_features['text'].str.count(r'\d') / df_features['text'].str.len()
     df_features['special_char_ratio'] = df_features['text'].str.count(r'[!@#$%^&*(),.?":{}|<>]') / df_features['text'].str.len()
     df_features['punctuation_density'] = df_features['text'].str.count(r'[^\w\s]') / df_features['text'].str.len()
     
-    # Specific character counts
+    # Specific character counts (NOT USED IN CURRENT TRAINING)
     df_features['exclamation_count'] = df_features['text'].str.count('!')
     df_features['question_count'] = df_features['text'].str.count(r'\?')
     df_features['caps_words'] = df_features['text'].str.count(r'\b[A-Z]{2,}\b')
     df_features['consecutive_chars'] = df_features['text'].str.count(r'(.)\1{2,}')
     
-    # Pattern detection
+    # Pattern detection (NOT USED IN CURRENT TRAINING)
     df_features['has_url'] = df_features['text'].str.contains(r'http', case=False).astype(int)
     df_features['has_phone'] = df_features['text'].str.contains(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b').astype(int)
     df_features['has_email'] = df_features['text'].str.contains(r'@').astype(int)
@@ -122,14 +128,22 @@ def extract_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
     df_features['has_win'] = df_features['text'].str.contains(r'\bwin\b', case=False).astype(int)
     df_features['has_urgent'] = df_features['text'].str.contains(r'\burgent\b', case=False).astype(int)
     
-    # Phishing and scam detection features
+    # =============================================================================
+    # ADVANCED FEATURE ENGINEERING - CURRENTLY NOT USED IN TRAINING PIPELINE
+    # =============================================================================
+    # These features are created but NOT used by the current TF-IDF-only training
+    # To use these features, the training pipeline needs to be updated to combine
+    # TF-IDF features with these engineered features using ColumnTransformer
+    # =============================================================================
+    
+    # Phishing and scam detection features (NOT USED IN CURRENT TRAINING)
     df_features['has_phishing_keywords'] = df_features['text'].str.contains(r'\b(?:verify|suspended|compromised|security|account|bank|paypal|amazon|microsoft|apple)\b', case=False).astype(int)
     df_features['has_scam_keywords'] = df_features['text'].str.contains(r'\b(?:prince|nigerian|inheritance|lottery|prize|million|transfer|help|urgent|immediately)\b', case=False).astype(int)
     df_features['has_suspicious_domains'] = df_features['text'].str.contains(r'\b(?:security|verify|update|account|bank|paypal|amazon|microsoft|apple)\.(?:com|net|org|info)\b', case=False).astype(int)
     df_features['has_money_mentions'] = df_features['text'].str.contains(r'\b(?:\$|£|€|dollar|pound|euro|million|thousand|cash|money|fund|transfer|deposit)\b', case=False).astype(int)
     df_features['has_personal_info_request'] = df_features['text'].str.contains(r'\b(?:password|pin|ssn|social security|bank account|credit card|personal|details|information)\b', case=False).astype(int)
     
-    # Text complexity
+    # Text complexity features (NOT USED IN CURRENT TRAINING)
     df_features['unique_word_ratio'] = df_features['text'].str.split().apply(lambda x: len(set(x)) / len(x) if len(x) > 0 else 0)
     df_features['sentence_count'] = df_features['text'].str.count(r'[.!?]+')
     df_features['avg_sentence_length'] = df_features['word_count'] / (df_features['sentence_count'] + 1)
