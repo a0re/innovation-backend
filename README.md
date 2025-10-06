@@ -160,25 +160,12 @@ The pipeline generates:
 - joblib >= 1.2.0
 - pyyaml >= 6.0
 
-## 🎓 Academic Usage
-
-This project is designed for academic submission with:
-- Clean, commented code
-- Comprehensive documentation
-- Reproducible results
-- Professional visualizations
-- Detailed analysis and insights
-
 ## 📝 Notes
 
 - The project uses sample datasets for demonstration
 - All preprocessing steps are documented and reproducible
 - Model performance may vary based on data quality
 - Clustering results depend on the spam message distribution
-
-## 🤝 Contributing
-
-This is an academic project. For questions or issues, please refer to the course instructor.
 
 ## 📄 License
 
