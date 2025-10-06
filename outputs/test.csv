@@ -1,7 +1,0 @@
-label,text,source
-spam,special offer: get <NUM>% off today only!,email
-spam,free entry in <NUM> a wkly comp to win fa cup final tkts 21st may <NUM>.,sms
-not_spam,i hope you are doing well. how is the new job?,email
-spam,you have been selected for a special promotion!,email
-not_spam,"hi, i wanted to follow up on our meeting yesterday.",email
-not_spam,see you later.,sms
