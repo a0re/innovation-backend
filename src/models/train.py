@@ -283,9 +283,19 @@ def train_spam_classifier() -> Tuple[SpamClassifier, pd.DataFrame, pd.DataFrame,
     # Print results summary
     classifier.print_results_summary()
     
-    # Save best model
-    model_path = os.path.join(config['data']['output_dir'], 'models', 'spam_pipeline.joblib')
-    save_model(classifier.best_model, model_path)
+    # Save all models
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+    ensure_dir_exists(models_dir)
+    
+    # Save best model (default)
+    best_model_path = os.path.join(models_dir, 'spam_pipeline.joblib')
+    save_model(classifier.best_model, best_model_path)
+    
+    # Save all individual models
+    for model_name, model_result in classifier.models.items():
+        model_path = os.path.join(models_dir, f'{model_name}.joblib')
+        save_model(model_result['model'], model_path)
+        logger.info(f"Saved {model_name} model to {model_path}")
     
     logger.info("Training completed successfully!")
     

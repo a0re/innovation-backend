@@ -7,7 +7,8 @@ import sys
 import os
 import joblib
 import logging
-from typing import Union
+import argparse
+from typing import Union, List
 
 # Add src directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,25 +18,59 @@ from utils.helpers import load_config, setup_logging, load_model
 setup_logging()
 logger = logging.getLogger(__name__)
 
-def load_trained_model(model_path: str = None) -> object:
+def get_available_models() -> List[str]:
+    """
+    Get list of available trained models.
+    
+    Returns:
+        List of available model names
+    """
+    config = load_config()
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+    
+    if not os.path.exists(models_dir):
+        return []
+    
+    models = []
+    for file in os.listdir(models_dir):
+        if file.endswith('.joblib'):
+            model_name = file.replace('.joblib', '')
+            models.append(model_name)
+    
+    return sorted(models)
+
+def load_trained_model(model_name: str = None) -> object:
     """
     Load the trained spam detection model.
     
     Args:
-        model_path: Path to the trained model file
+        model_name: Name of the model to load (e.g., 'multinomial_nb', 'logistic_regression', 'linear_svc')
+                   If None, loads the best model (spam_pipeline.joblib)
         
     Returns:
         Loaded model
     """
-    if model_path is None:
-        # Load configuration to get default model path
-        config = load_config()
-        model_path = os.path.join(config['data']['output_dir'], 'models', 'spam_pipeline.joblib')
+    config = load_config()
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+    
+    if model_name is None:
+        # Load best model (default)
+        model_path = os.path.join(models_dir, 'spam_pipeline.joblib')
+        model_display_name = "best model (spam_pipeline)"
+    else:
+        # Load specific model
+        model_path = os.path.join(models_dir, f'{model_name}.joblib')
+        model_display_name = model_name
     
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at {model_path}. Please train the model first.")
+        available_models = get_available_models()
+        raise FileNotFoundError(
+            f"Model '{model_name}' not found at {model_path}.\n"
+            f"Available models: {', '.join(available_models)}\n"
+            f"Please train the model first by running: python src/models/train.py"
+        )
     
-    logger.info(f"Loading model from {model_path}")
+    logger.info(f"Loading {model_display_name} from {model_path}")
     model = load_model(model_path)
     
     return model
@@ -179,16 +214,18 @@ def format_prediction(prediction: str, confidence: float) -> str:
     
     return f"{emoji} {status} (confidence: {confidence:.2%})"
 
-def interactive_mode(model: object) -> None:
+def interactive_mode(model: object, model_name: str = "best model") -> None:
     """
     Run interactive prediction mode.
     
     Args:
         model: Trained model
+        model_name: Name of the model being used
     """
     print("\n" + "="*50)
     print("SPAM DETECTION - INTERACTIVE MODE")
     print("="*50)
+    print(f"Using model: {model_name}")
     print("Enter messages to classify (type 'quit' to exit)")
     print("-" * 50)
     
@@ -220,25 +257,81 @@ def main():
     """
     Main function for command-line interface.
     """
+    # Set up argument parser
+    parser = argparse.ArgumentParser(
+        description="Spam Detection CLI - Classify messages as spam or not spam",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python src/models/predict.py "Free money! Click here now!"
+  python src/models/predict.py --model multinomial_nb "Verify your account"
+  python src/models/predict.py --model logistic_regression
+  python src/models/predict.py --list-models
+        """
+    )
+    
+    parser.add_argument(
+        'message', 
+        nargs='*', 
+        help='Message to classify (if not provided, runs in interactive mode)'
+    )
+    
+    parser.add_argument(
+        '--model', '-m',
+        type=str,
+        help='Model to use (multinomial_nb, logistic_regression, linear_svc). Default: best model'
+    )
+    
+    parser.add_argument(
+        '--list-models', '-l',
+        action='store_true',
+        help='List available models and exit'
+    )
+    
+    args = parser.parse_args()
+    
     try:
+        # List models if requested
+        if args.list_models:
+            available_models = get_available_models()
+            if available_models:
+                print("Available models:")
+                for model in available_models:
+                    if model == 'spam_pipeline':
+                        print(f"  {model} (best model - default)")
+                    else:
+                        print(f"  {model}")
+            else:
+                print("No models found. Please train the model first:")
+                print("  python src/models/train.py")
+            return
+        
         # Load the trained model
-        model = load_trained_model()
+        model_name = args.model
+        model = load_trained_model(model_name)
+        
+        # Determine display name for model
+        if model_name is None:
+            display_name = "best model (spam_pipeline)"
+        else:
+            display_name = model_name
         
         # Check if message is provided as command line argument
-        if len(sys.argv) > 1:
+        if args.message:
             # Get message from command line arguments
-            message = ' '.join(sys.argv[1:])
+            message = ' '.join(args.message)
             
             # Make prediction
             prediction, confidence = predict_message(model, message)
             result = format_prediction(prediction, confidence)
             
+            print(f"Model: {display_name}")
             print(f"Message: {message}")
             print(f"Prediction: {result}")
             
         else:
             # Run interactive mode
-            interactive_mode(model)
+            interactive_mode(model, display_name)
             
     except FileNotFoundError as e:
         print(f"Error: {e}")
