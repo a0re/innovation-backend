@@ -39,13 +39,43 @@ def get_available_models() -> List[str]:
     
     return sorted(models)
 
+def get_best_model_info(models_dir: str) -> tuple:
+    """
+    Get information about the best model from metadata.
+    
+    Args:
+        models_dir: Path to the models directory
+        
+    Returns:
+        Tuple of (best_model_name, best_score, model_file)
+    """
+    import json
+    
+    metadata_path = os.path.join(models_dir, 'best_model.json')
+    
+    if not os.path.exists(metadata_path):
+        return None, None, None
+    
+    try:
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+        
+        return (
+            metadata.get('best_model_name'),
+            metadata.get('best_score'),
+            metadata.get('model_file')
+        )
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"Error reading best model metadata: {e}")
+        return None, None, None
+
 def load_trained_model(model_name: str = None) -> object:
     """
     Load the trained spam detection model.
     
     Args:
         model_name: Name of the model to load (e.g., 'multinomial_nb', 'logistic_regression', 'linear_svc')
-                   If None, loads the best model (spam_pipeline.joblib)
+                   If None, loads the best model from metadata
         
     Returns:
         Loaded model
@@ -54,9 +84,24 @@ def load_trained_model(model_name: str = None) -> object:
     models_dir = os.path.join(config['data']['output_dir'], 'models')
     
     if model_name is None:
-        # Load best model (default)
-        model_path = os.path.join(models_dir, 'spam_pipeline.joblib')
-        model_display_name = "best model (spam_pipeline)"
+        # Load best model from metadata
+        best_model_name, best_score, model_file = get_best_model_info(models_dir)
+        
+        if best_model_name is None:
+            available_models = get_available_models()
+            if not available_models:
+                raise FileNotFoundError(
+                    f"No trained models found in {models_dir}.\n"
+                    f"Please train the model first by running: python src/models/train.py"
+                )
+            else:
+                raise FileNotFoundError(
+                    f"No best model metadata found. Available models: {', '.join(available_models)}\n"
+                    f"Please train the model first by running: python src/models/train.py"
+                )
+        
+        model_path = os.path.join(models_dir, model_file)
+        model_display_name = f"best model ({best_model_name}, score: {best_score:.4f})"
     else:
         # Load specific model
         model_path = os.path.join(models_dir, f'{model_name}.joblib')
@@ -64,11 +109,17 @@ def load_trained_model(model_name: str = None) -> object:
     
     if not os.path.exists(model_path):
         available_models = get_available_models()
-        raise FileNotFoundError(
-            f"Model '{model_name}' not found at {model_path}.\n"
-            f"Available models: {', '.join(available_models)}\n"
-            f"Please train the model first by running: python src/models/train.py"
-        )
+        if not available_models:
+            raise FileNotFoundError(
+                f"No trained models found in {models_dir}.\n"
+                f"Please train the model first by running: python src/models/train.py"
+            )
+        else:
+            raise FileNotFoundError(
+                f"Model '{model_name}' not found at {model_path}.\n"
+                f"Available models: {', '.join(available_models)}\n"
+                f"Please train the model first by running: python src/models/train.py"
+            )
     
     logger.info(f"Loading {model_display_name} from {model_path}")
     model = load_model(model_path)
@@ -295,12 +346,22 @@ Examples:
         if args.list_models:
             available_models = get_available_models()
             if available_models:
+                # Get best model info
+                config = load_config()
+                models_dir = os.path.join(config['data']['output_dir'], 'models')
+                best_model_name, best_score, _ = get_best_model_info(models_dir)
+                
                 print("Available models:")
                 for model in available_models:
-                    if model == 'spam_pipeline':
-                        print(f"  {model} (best model - default)")
+                    if model == best_model_name:
+                        print(f"  {model} (best model - score: {best_score:.4f})")
                     else:
                         print(f"  {model}")
+                
+                if best_model_name:
+                    print(f"\nDefault model: {best_model_name} (automatically selected)")
+                else:
+                    print("\nNo best model metadata found. Please retrain models.")
             else:
                 print("No models found. Please train the model first:")
                 print("  python src/models/train.py")
@@ -312,7 +373,13 @@ Examples:
         
         # Determine display name for model
         if model_name is None:
-            display_name = "best model (spam_pipeline)"
+            config = load_config()
+            models_dir = os.path.join(config['data']['output_dir'], 'models')
+            best_model_name, best_score, _ = get_best_model_info(models_dir)
+            if best_model_name:
+                display_name = f"best model ({best_model_name}, score: {best_score:.4f})"
+            else:
+                display_name = "best model"
         else:
             display_name = model_name
         

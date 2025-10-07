@@ -21,6 +21,57 @@ from utils.helpers import load_config, ensure_dir_exists, setup_logging, save_mo
 setup_logging()
 logger = logging.getLogger(__name__)
 
+def clear_old_models(models_dir: str) -> None:
+    """
+    Clear all existing model files from the models directory.
+    
+    Args:
+        models_dir: Path to the models directory
+    """
+    if not os.path.exists(models_dir):
+        return
+    
+    # Get all .joblib files and best_model.json in the models directory
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.joblib') or f == 'best_model.json']
+    
+    if model_files:
+        logger.info(f"Clearing {len(model_files)} old model files...")
+        for model_file in model_files:
+            model_path = os.path.join(models_dir, model_file)
+            try:
+                os.remove(model_path)
+                logger.info(f"Removed old model: {model_file}")
+            except OSError as e:
+                logger.warning(f"Could not remove {model_file}: {e}")
+    else:
+        logger.info("No old model files found to clear")
+
+def save_best_model_metadata(models_dir: str, best_model_name: str, best_score: float) -> None:
+    """
+    Save metadata about the best model instead of duplicating the model file.
+    
+    Args:
+        models_dir: Path to the models directory
+        best_model_name: Name of the best performing model
+        best_score: Validation score of the best model
+    """
+    import json
+    from datetime import datetime
+    
+    metadata = {
+        "best_model_name": best_model_name,
+        "best_score": best_score,
+        "timestamp": datetime.now().isoformat(),
+        "model_file": f"{best_model_name}.joblib"
+    }
+    
+    metadata_path = os.path.join(models_dir, 'best_model.json')
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    logger.info(f"Saved best model metadata: {best_model_name} (score: {best_score:.4f})")
+    logger.info(f"Best model reference saved to: {metadata_path}")
+
 class SpamClassifier:
     """
     Spam classification pipeline with TF-IDF vectorization and multiple models.
@@ -283,19 +334,19 @@ def train_spam_classifier() -> Tuple[SpamClassifier, pd.DataFrame, pd.DataFrame,
     # Print results summary
     classifier.print_results_summary()
     
-    # Save all models
+    # Clear old models and save new ones
     models_dir = os.path.join(config['data']['output_dir'], 'models')
+    clear_old_models(models_dir)
     ensure_dir_exists(models_dir)
-    
-    # Save best model (default)
-    best_model_path = os.path.join(models_dir, 'spam_pipeline.joblib')
-    save_model(classifier.best_model, best_model_path)
     
     # Save all individual models
     for model_name, model_result in classifier.models.items():
         model_path = os.path.join(models_dir, f'{model_name}.joblib')
         save_model(model_result['model'], model_path)
         logger.info(f"Saved {model_name} model to {model_path}")
+    
+    # Save best model metadata (instead of duplicating the model)
+    save_best_model_metadata(models_dir, classifier.best_model_name, classifier.best_score)
     
     logger.info("Training completed successfully!")
     
