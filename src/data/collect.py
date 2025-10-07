@@ -147,7 +147,8 @@ def download_additional_kaggle_datasets() -> pd.DataFrame:
     # Only use datasets we know work
     datasets_to_try = [
         "wcukierski/enron-email-dataset",
-        "venky73/spam-mails-dataset"
+        "venky73/spam-mails-dataset",
+        "shantanudhakadd/email-spam-detection-dataset-classification"
     ]
     
     additional_datasets = []
@@ -190,8 +191,23 @@ def download_additional_kaggle_datasets() -> pd.DataFrame:
                 # Sample to avoid extreme imbalance
                 if len(df) > 10000:
                     df = df.sample(n=10000, random_state=42)
+            elif 'text' in df.columns and 'label' in df.columns:
+                # Already in correct format
+                pass
+            elif 'email' in df.columns and 'label' in df.columns:
+                df = df.rename(columns={'email': 'text'})
+            elif 'content' in df.columns and 'label' in df.columns:
+                df = df.rename(columns={'content': 'text'})
             else:
-                continue
+                # Try to find text and label columns automatically
+                text_cols = [col for col in df.columns if any(word in col.lower() for word in ['text', 'message', 'email', 'content', 'body'])]
+                label_cols = [col for col in df.columns if any(word in col.lower() for word in ['label', 'class', 'spam', 'type', 'category', 'target'])]
+                
+                if text_cols and label_cols:
+                    df = df.rename(columns={text_cols[0]: 'text', label_cols[0]: 'label'})
+                else:
+                    logger.warning(f"Could not map columns for {dataset_name}. Available columns: {df.columns.tolist()}")
+                    continue
             
             # Set source label
             if "ozlerhakan" in dataset_name:
@@ -200,6 +216,8 @@ def download_additional_kaggle_datasets() -> pd.DataFrame:
                 df['source'] = 'kaggle_enron_emails'
             elif "venky73" in dataset_name:
                 df['source'] = 'kaggle_spam_mails'
+            elif "shantanudhakadd" in dataset_name:
+                df['source'] = 'kaggle_email_spam_detection'
             
             additional_datasets.append(df)
             logger.info(f"Successfully loaded {dataset_name}: {len(df)} messages")
