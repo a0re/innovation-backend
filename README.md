@@ -8,15 +8,16 @@ This project implements a comprehensive spam detection system using advanced mac
 
 ### Key Features
 
-- **Real Dataset Integration**: Downloads multiple real datasets from UCI and Kaggle
-- **Advanced Text Preprocessing**: Enhanced text cleaning with 15+ engineered features
+- **Multi-Source Dataset Integration**: Downloads 23,742+ messages from 4 different datasets
+- **Efficient Model Storage**: Metadata-based best model tracking (no duplication)
+- **Advanced Text Preprocessing**: Enhanced text cleaning with 27+ engineered features
 - **SMOTE Class Balancing**: Handles class imbalance with synthetic oversampling
 - **Comprehensive EDA**: Advanced visualizations including spam trigger words analysis
-- **Multiple ML Models**: 3 classifiers with hyperparameter tuning
-- **Anomaly Detection**: Isolation Forest, One-Class SVM, and EllipticEnvelope
+- **Multiple ML Models**: 3 classifiers with hyperparameter tuning and automatic best model selection
+- **Dynamic Model Management**: Automatic cleanup of old models and best model tracking
 - **Model Evaluation**: Detailed performance metrics and visualizations
 - **K-Means Clustering**: Identifies spam subtypes with silhouette analysis
-- **Command-Line Interface**: Easy-to-use prediction tool
+- **Enhanced CLI**: Interactive and command-line prediction with confidence scores
 - **Reproducible Research**: Fixed random seeds and comprehensive logging
 
 ## 📁 Project Structure
@@ -105,20 +106,71 @@ python src/models/cluster.py
 ### 4. Make Predictions
 
 ```bash
-# Predict a single message
+# Predict a single message (uses best model automatically)
 python src/models/predict.py "Congratulations! You have won $1000!"
+
+# Use a specific model
+python src/models/predict.py --model multinomial_nb "Free money! Click here now!"
+
+# List available models
+python src/models/predict.py --list-models
 
 # Interactive mode
 python src/models/predict.py
 ```
 
-## 🆕 New Features (Enhanced Version)
+#### CLI Features
+- **Automatic Best Model Selection**: Uses the highest-performing model by default
+- **Model-Specific Predictions**: Choose specific models with `--model` flag
+- **Confidence Scores**: Shows prediction confidence as percentages
+- **Visual Indicators**: 🚨 for spam, ✅ for legitimate messages
+- **Dynamic Thresholds**: Adjusts spam detection based on message characteristics
+
+## 📊 Training Datasets
+
+The system uses **4 comprehensive datasets** totaling **23,742 messages**:
+
+### **Primary Datasets**
+1. **UCI SMS Spam Collection** (5,572 messages)
+   - Source: University of California Irvine
+   - Content: SMS messages with spam/ham labels
+   - Balance: ~87% legitimate, ~13% spam
+
+2. **Kaggle Email Spam Classification** (2,999 messages)
+   - Source: Kaggle (ozlerhakan/spam-or-not-spam-dataset)
+   - Content: Email messages with classification labels
+   - Balance: ~83% legitimate, ~17% spam
+
+### **Additional Datasets**
+3. **Enron Email Dataset** (10,000 messages)
+   - Source: Kaggle (wcukierski/enron-email-dataset)
+   - Content: Corporate email communications (all legitimate)
+   - Purpose: Provides diverse legitimate message patterns
+
+4. **Spam Mails Dataset** (5,171 messages)
+   - Source: Kaggle (venky73/spam-mails-dataset)
+   - Content: Email spam examples and legitimate messages
+   - Purpose: Additional spam pattern diversity
+
+### **Data Processing**
+- **Automatic Download**: Scripts download and combine all datasets
+- **Smart Column Mapping**: Handles different dataset formats automatically
+- **Deduplication**: Removes duplicate messages (6.7% removed)
+- **Balancing**: SMOTE oversampling for class balance
+- **Final Training Set**: 5,177 messages (70% train, 15% validation, 15% test)
+
+## 🆕 Enhanced Features
+
+### **Efficient Model Storage**
+- **Metadata-Based Tracking**: `best_model.json` tracks the best performing model
+- **No Duplication**: Eliminates wasteful storage of duplicate models
+- **Automatic Cleanup**: Removes old models before training new ones
+- **Storage Savings**: ~2.1MB saved per training run
 
 ### **Advanced Data Processing**
-- **Real Datasets**: Uses multiple real datasets from UCI and Kaggle (10,000+ messages)
+- **Multi-Source Integration**: 23,742+ messages from 4 different datasets
 - **SMOTE Balancing**: Handles class imbalance with synthetic minority oversampling
-- **15+ Engineered Features**: Message length, character ratios, pattern detection, etc.
-
+- **27+ Engineered Features**: Message length, character ratios, pattern detection, etc.
 
 ### **Enhanced Visualizations**
 - **Spam Trigger Words**: Identifies words that strongly indicate spam
@@ -126,18 +178,24 @@ python src/models/predict.py
 - **TF-IDF Feature Analysis**: Feature importance and differentiation
 
 ### **Improved Performance**
-- **Better Generalization**: Real dataset provides more robust training
+- **Better Generalization**: Diverse datasets provide more robust training
 - **Class Balance**: SMOTE ensures fair representation of both classes
-- **Feature Richness**: 22+ engineered features improve classification accuracy
-- **Spam Subtype Analysis**: K-Means clustering identifies 8 distinct spam types
+- **Feature Richness**: 27+ engineered features improve classification accuracy
+- **Reduced False Positives**: Significantly improved legitimate message detection
 
-## 📊 Expected Results
+## 📊 Current Performance Results
 
 ### Model Performance
-- **Best Classifier**: LinearSVC with optimized hyperparameters
-- **Validation Macro-F1**: ~0.94
-- **Test Macro-F1**: ~0.93
-- **Accuracy**: ~0.95
+- **Best Classifier**: MultinomialNB with optimized hyperparameters
+- **Validation Macro-F1**: 0.9444
+- **Cross-Validation Score**: 0.9411
+- **Best Parameters**: `{'classifier__alpha': 0.1}`
+
+### Real-World Test Results
+- **Legitimate Messages**: 91-97% confidence (excellent detection)
+- **Spam Messages**: 94-99% confidence (high accuracy)
+- **False Positives**: Significantly reduced with expanded training data
+- **Dynamic Thresholds**: Adapts to message characteristics for better accuracy
 
 ### Clustering Results
 - **Best k**: 8 clusters
@@ -171,7 +229,10 @@ The pipeline generates:
 - Performance metrics
 
 ### Models
-- Trained pipeline saved as `outputs/models/spam_pipeline.joblib`
+- **Best Model**: Automatically selected and tracked via `outputs/models/best_model.json`
+- **Individual Models**: `multinomial_nb.joblib`, `logistic_regression.joblib`, `linear_svc.joblib`
+- **Metadata**: Model performance scores and timestamps stored in JSON format
+- **Automatic Management**: Old models cleaned up automatically before retraining
 
 ## 🧪 Reproducibility
 

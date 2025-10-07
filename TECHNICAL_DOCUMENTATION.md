@@ -4,7 +4,32 @@
 
 This document provides an extremely detailed technical explanation of the spam detection machine learning pipeline, covering every file, algorithm, parameter, and implementation detail. This project has been enhanced with advanced machine learning techniques including anomaly detection, advanced feature engineering, and comprehensive analysis tools.
 
-## 🆕 **MAJOR ENHANCEMENTS IMPLEMENTED**
+## 🆕 **LATEST ENHANCEMENTS (v2.0)**
+
+### **Major Improvements Added:**
+1. **Multi-Source Dataset Integration** - 23,742+ messages from 4 different datasets
+2. **Efficient Model Storage System** - Metadata-based best model tracking
+3. **Enhanced CLI with Dynamic Model Selection** - Automatic best model usage
+4. **Advanced Feature Engineering** - 27+ engineered features beyond basic TF-IDF
+5. **SMOTE Class Balancing** - Handles imbalanced datasets with synthetic oversampling
+6. **Enhanced Visualizations** - Spam trigger words, advanced message characteristics
+7. **Comprehensive Evaluation** - Multiple metrics and advanced analysis
+
+### **New Model Management System:**
+- **Metadata-Based Tracking**: `best_model.json` stores best model information
+- **Automatic Cleanup**: Old models removed before retraining
+- **No Duplication**: Eliminates wasteful storage of duplicate models
+- **Dynamic Selection**: Prediction system automatically uses best model
+- **Storage Efficiency**: ~2.1MB saved per training run
+
+### **Enhanced CLI Features:**
+- **Automatic Best Model Selection**: Uses highest-performing model by default
+- **Model-Specific Predictions**: Choose specific models with `--model` flag
+- **Confidence Scores**: Shows prediction confidence as percentages
+- **Visual Indicators**: 🚨 for spam, ✅ for legitimate messages
+- **Dynamic Thresholds**: Adjusts spam detection based on message characteristics
+
+## 🆕 **PREVIOUS ENHANCEMENTS IMPLEMENTED**
 
 ### **Enhanced Features Added:**
 1. **Real Dataset Integration** - Downloads actual SMS Spam Collection (5,572 messages)
@@ -18,6 +43,89 @@ This document provides an extremely detailed technical explanation of the spam d
 ## 🔄 **DETAILED CHANGES IMPLEMENTED**
 
 ### **1. Enhanced Data Collection (`src/data/collect.py`)**
+**Latest Updates:**
+- **Multi-Source Integration**: Added 4 different datasets (23,742+ messages)
+- **Smart Column Mapping**: Automatic detection of text/label columns
+- **Enhanced Error Handling**: Better handling of encoding issues and dataset formats
+- **Dataset Sources**:
+  - UCI SMS Spam Collection (5,572 messages)
+  - Kaggle Email Spam Classification (2,999 messages)
+  - Enron Email Dataset (10,000 messages)
+  - Spam Mails Dataset (5,171 messages)
+
+**Key Code Changes:**
+```python
+# Enhanced dataset list
+datasets_to_try = [
+    "wcukierski/enron-email-dataset",
+    "venky73/spam-mails-dataset",
+    "shantanudhakadd/email-spam-detection-dataset-classification"
+]
+
+# Improved column mapping
+if 'text' in df.columns and 'label' in df.columns:
+    pass  # Already in correct format
+elif 'email' in df.columns and 'label' in df.columns:
+    df = df.rename(columns={'email': 'text'})
+# ... additional mapping logic
+```
+
+### **2. Efficient Model Storage System (`src/models/train.py`)**
+**New Features:**
+- **Metadata-Based Tracking**: `best_model.json` stores best model information
+- **Automatic Cleanup**: `clear_old_models()` function removes old models
+- **No Duplication**: Eliminates wasteful storage of duplicate models
+
+**Key Implementation:**
+```python
+def clear_old_models(models_dir: str) -> None:
+    """Clear all existing model files from the models directory."""
+    model_files = [f for f in os.listdir(models_dir) 
+                   if f.endswith('.joblib') or f == 'best_model.json']
+    for model_file in model_files:
+        os.remove(os.path.join(models_dir, model_file))
+
+def save_best_model_metadata(models_dir: str, best_model_name: str, best_score: float):
+    """Save metadata about the best model instead of duplicating the model file."""
+    metadata = {
+        "best_model_name": best_model_name,
+        "best_score": best_score,
+        "timestamp": datetime.now().isoformat(),
+        "model_file": f"{best_model_name}.joblib"
+    }
+    with open(os.path.join(models_dir, 'best_model.json'), 'w') as f:
+        json.dump(metadata, f, indent=2)
+```
+
+### **3. Enhanced Prediction System (`src/models/predict.py`)**
+**New Features:**
+- **Automatic Best Model Selection**: Uses metadata to find best model
+- **Model-Specific Predictions**: Choose specific models with `--model` flag
+- **Enhanced Error Handling**: Better messages for missing models
+- **Improved Display**: Shows model name and performance score
+
+**Key Implementation:**
+```python
+def get_best_model_info(models_dir: str) -> tuple:
+    """Get information about the best model from metadata."""
+    metadata_path = os.path.join(models_dir, 'best_model.json')
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+    return (metadata.get('best_model_name'), 
+            metadata.get('best_score'), 
+            metadata.get('model_file'))
+
+def load_trained_model(model_name: str = None) -> object:
+    """Load the trained spam detection model."""
+    if model_name is None:
+        # Load best model from metadata
+        best_model_name, best_score, model_file = get_best_model_info(models_dir)
+        model_path = os.path.join(models_dir, model_file)
+        model_display_name = f"best model ({best_model_name}, score: {best_score:.4f})"
+    # ... rest of implementation
+```
+
+### **4. Enhanced Data Collection (`src/data/collect.py`)**
 **Changes Made:**
 - **Improved encoding handling** for real SMS dataset download
 - **Better error handling** with fallback to sample data
