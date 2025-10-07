@@ -1,0 +1,6 @@
+{
+  "best_model_name": "linear_svc",
+  "best_score": 0.9651698036006546,
+  "timestamp": "2025-10-07T12:25:15.329991",
+  "model_file": "linear_svc.joblib"
+}
