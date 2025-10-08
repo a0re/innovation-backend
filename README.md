@@ -272,7 +272,7 @@ The pipeline typically achieves:
 - **Accuracy**: >95% on test set
 - **F1-Score**: >0.90 for both classes
 - **ROC-AUC**: >0.95
-- **Best Model**: Usually Linear SVM or Logistic Regression
+- **Best Model**: Usually multinomial_nb
 
 ## 🔍 Troubleshooting
 
