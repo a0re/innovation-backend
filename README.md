@@ -50,6 +50,22 @@ A comprehensive machine learning pipeline for spam detection using text classifi
 
 That's it! The pipeline will automatically load existing data (if available) or download it, then run the complete machine learning workflow.
 
+### Quick Verification
+
+To verify the setup is working, try running a simple prediction:
+
+```bash
+# Create and activate virtual environment
+python -m venv spam-detection-env
+source spam-detection-env/bin/activate  # Linux/Mac
+pip install -r src/requirements.txt
+
+# Test prediction
+python src/models/predict.py "Congratulations! You have won $1000!"
+```
+
+This should return a spam prediction with high confidence.
+
 ## 📁 Project Structure
 
 ```
@@ -268,59 +284,5 @@ The pipeline typically achieves:
 4. **Memory Issues**: For large datasets, consider reducing `max_features` in config
 5. **Virtual Environment Issues**: Make sure to activate the virtual environment before running any scripts
 
-### Quick Verification
-
-To verify the setup is working, try running a simple prediction:
-
-```bash
-# Create and activate virtual environment
-python -m venv spam-detection-env
-source spam-detection-env/bin/activate  # Linux/Mac
-pip install -r src/requirements.txt
-
-# Test prediction
-python src/models/predict.py "Congratulations! You have won $1000!"
-```
-
-This should return a spam prediction with high confidence.
-
 ### Logs
 All operations are logged to `spam_detection.log` for debugging.
-
-## 📚 Technical Details
-
-### Algorithms Used
-- **Multinomial Naive Bayes**: Fast baseline classifier
-- **Logistic Regression**: Linear classifier with regularization
-- **Linear SVM**: Support vector machine for text classification
-- **K-Means Clustering**: Unsupervised learning for spam subtype analysis
-
-### Feature Engineering
-- Text length and word count statistics
-- Special character and digit counts
-- URL and email pattern detection
-- TF-IDF vectorization with n-grams
-- SMOTE oversampling for class balance
-
-### Evaluation Metrics
-- Accuracy, Precision, Recall, F1-Score
-- ROC-AUC and Precision-Recall AUC
-- Confusion matrices and classification reports
-- Cross-validation with 5 folds
-
-## 🎓 Academic Use
-
-This project is designed for educational and research purposes. It demonstrates:
-- Complete ML pipeline implementation
-- Multiple algorithm comparison
-- Feature engineering techniques
-- Model evaluation best practices
-- Clustering for pattern discovery
-
-## 📝 License
-
-This project is for educational use. Please cite appropriately if used in academic work.
-
----
-
-**Note**: The pipeline automatically handles data loading. If `outputs/raw_data.csv` exists, it will be used instead of downloading new data, making the setup process faster and more reliable.
