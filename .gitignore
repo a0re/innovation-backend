@@ -40,18 +40,9 @@ spam-detection-env/
 Thumbs.db
 
 # Project-specific ignores
-# Generated outputs (these are created by running the pipeline)
+# Keep data and models for submission, but ignore temporary files
 outputs/final_summary.txt
-outputs/models/spam_pipeline.joblib
-outputs/models/*
 outputs/plots/clustering_silhouette_scores.csv
-outputs/test.csv
-outputs/train.csv
-outputs/val.csv
-outputs/raw_data.csv
-outputs/eda/
-outputs/plots/
-outputs/reports/
 
 # Log files
 *.log
@@ -63,5 +54,15 @@ comparison_project/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Kaggle API (not needed for submission)
 kaggle.json
 temp_kaggle_*/
+
+# Keep these for submission:
+# - outputs/raw_data.csv (dataset)
+# - outputs/train.csv, outputs/val.csv, outputs/test.csv (processed data)
+# - outputs/models/ (trained models)
+# - outputs/eda/ (exploratory data analysis plots)
+# - outputs/plots/ (clustering visualizations)
+# - outputs/reports/ (evaluation reports)

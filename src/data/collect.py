@@ -4,11 +4,15 @@ Downloads and combines real datasets from UCI and Kaggle.
 """
 
 import os
+import sys
 import pandas as pd
 import requests
 import zipfile
 import io
 import logging
+
+# Add src directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.helpers import load_config, ensure_dir_exists, setup_logging
 
 # Import kaggle API
@@ -268,8 +272,33 @@ def collect_data() -> pd.DataFrame:
     logger.info("Starting data collection process...")
     
     config = load_config()
+    output_dir = config['data']['output_dir']
+    ensure_dir_exists(output_dir)
+    raw_data_path = os.path.join(output_dir, 'raw_data.csv')
     
-    # Download datasets
+    # Check if raw data already exists
+    if os.path.exists(raw_data_path):
+        logger.info(f"📁 Raw data already exists at {raw_data_path}")
+        logger.info("🔄 Loading existing data instead of downloading...")
+        
+        try:
+            combined_df = pd.read_csv(raw_data_path)
+            logger.info(f"✅ Loaded existing dataset: {len(combined_df)} messages")
+            
+            # Print summary
+            print(f"✅ Data loaded from existing file!")
+            print(f"   Total messages: {len(combined_df)}")
+            print(f"   Label distribution:\n{combined_df['label'].value_counts()}")
+            if 'source' in combined_df.columns:
+                print(f"   Source distribution:\n{combined_df['source'].value_counts()}")
+            
+            return combined_df
+            
+        except Exception as e:
+            logger.warning(f"Error loading existing data: {e}")
+            logger.info("🔄 Proceeding with fresh data download...")
+    
+    # Download datasets (only if raw data doesn't exist)
     logger.info("📱 Downloading SMS spam data...")
     sms_df = download_sms_spam_data()
     
@@ -308,10 +337,6 @@ def collect_data() -> pd.DataFrame:
         raise ValueError("Insufficient class examples. Need at least 100 examples per class.")
     
     # Save raw data
-    output_dir = config['data']['output_dir']
-    ensure_dir_exists(output_dir)
-    
-    raw_data_path = os.path.join(output_dir, 'raw_data.csv')
     combined_df.to_csv(raw_data_path, index=False)
     logger.info(f"Raw data saved to {raw_data_path}")
     
