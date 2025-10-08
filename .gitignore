@@ -43,6 +43,7 @@ Thumbs.db
 # Generated outputs (these are created by running the pipeline)
 outputs/final_summary.txt
 outputs/models/spam_pipeline.joblib
+outputs/models/*
 outputs/plots/clustering_silhouette_scores.csv
 outputs/test.csv
 outputs/train.csv
