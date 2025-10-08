@@ -35,6 +35,15 @@ A comprehensive machine learning pipeline for spam detection using text classifi
    python src/run_pipeline.py
    ```
 
+5. **Test prediction (optional):**
+   ```bash
+   # Test with a spam message
+   python src/models/predict.py "Congratulations! You have won $1000!"
+   
+   # Test with a normal message
+   python src/models/predict.py "Hey, how are you doing today?"
+   ```
+
 That's it! The pipeline will automatically load existing data (if available) or download it, then run the complete machine learning workflow.
 
 ## 📁 Project Structure
