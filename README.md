@@ -61,7 +61,7 @@ source spam-detection-env/bin/activate  # Linux/Mac
 pip install -r src/requirements.txt
 
 # Test prediction
-python src/models/predict.py "Congratulations! You have won $1000!"
+python src/models/predict.py "Congratulations! You have won $1000\!"
 ```
 
 This should return a spam prediction with high confidence.
