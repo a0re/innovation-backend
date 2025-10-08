@@ -16,16 +16,20 @@ A comprehensive machine learning pipeline for spam detection using text classifi
    cd innovation
    ```
 
-2. **Activate the virtual environment:**
+2. **Create and activate a virtual environment:**
    ```bash
-   # On Linux/Mac
+   # Create virtual environment
+   python -m venv spam-detection-env
+   
+   # Activate virtual environment
+   # On Linux/Mac:
    source spam-detection-env/bin/activate
    
-   # On Windows
+   # On Windows:
    spam-detection-env\Scripts\activate
    ```
 
-3. **Install dependencies (if needed):**
+3. **Install dependencies:**
    ```bash
    pip install -r src/requirements.txt
    ```
@@ -79,9 +83,11 @@ innovation/
 Downloads and combines spam datasets from multiple sources.
 
 ```bash
-# Make sure virtual environment is activated
+# Make sure virtual environment is created and activated
+python -m venv spam-detection-env
 source spam-detection-env/bin/activate  # Linux/Mac
 # or spam-detection-env\Scripts\activate  # Windows
+pip install -r src/requirements.txt
 
 python src/data/collect.py
 ```
@@ -165,8 +171,10 @@ python src/models/cluster.py
 Command-line interface for making predictions on new messages.
 
 ```bash
-# Make sure virtual environment is activated
+# Make sure virtual environment is created and activated
+python -m venv spam-detection-env
 source spam-detection-env/bin/activate  # Linux/Mac
+pip install -r src/requirements.txt
 
 # Predict a single message
 python src/models/predict.py "Your message here"
@@ -265,8 +273,10 @@ The pipeline typically achieves:
 To verify the setup is working, try running a simple prediction:
 
 ```bash
-# Activate virtual environment
+# Create and activate virtual environment
+python -m venv spam-detection-env
 source spam-detection-env/bin/activate  # Linux/Mac
+pip install -r src/requirements.txt
 
 # Test prediction
 python src/models/predict.py "Congratulations! You have won $1000!"
