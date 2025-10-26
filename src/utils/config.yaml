@@ -5,7 +5,7 @@ random_state: 42
 data:
   sms_spam_url: "https://archive.ics.uci.edu/ml/machine-learning-databases/00228/smsspamcollection.zip"
   email_spam_url: "https://www.kaggle.com/datasets/balaka18/email-spam-classification-dataset"
-  output_dir: "/home/thepanable/innovation/outputs"
+  output_dir: "outputs"
 
 # Preprocessing parameters
 preprocessing:
