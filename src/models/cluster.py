@@ -328,14 +328,14 @@ class SpamClusterer:
     def save_cluster_results(self, output_dir: str) -> None:
         """
         Save clustering results to files.
-        
+
         Args:
             output_dir: Directory to save results
         """
         logger.info("Saving clustering results...")
-        
+
         ensure_dir_exists(output_dir)
-        
+
         # Save silhouette scores
         silhouette_data = []
         for k, result in self.cluster_results.items():
@@ -344,12 +344,12 @@ class SpamClusterer:
                 'silhouette_score': result['silhouette_score'],
                 'inertia': result['inertia']
             })
-        
+
         silhouette_df = pd.DataFrame(silhouette_data)
         silhouette_path = os.path.join(output_dir, 'clustering_silhouette_scores.csv')
         silhouette_df.to_csv(silhouette_path, index=False)
         logger.info(f"Silhouette scores saved to {silhouette_path}")
-        
+
         # Save top terms for best k
         best_result = self.cluster_results[self.best_k]
         top_terms_data = []
@@ -361,11 +361,35 @@ class SpamClusterer:
                     'term': term,
                     'tfidf_score': score
                 })
-        
+
         top_terms_df = pd.DataFrame(top_terms_data)
         top_terms_path = os.path.join(output_dir, 'clustering_top_terms.csv')
         top_terms_df.to_csv(top_terms_path, index=False)
         logger.info(f"Top terms saved to {top_terms_path}")
+
+    def save_model(self, models_dir: str) -> None:
+        """
+        Save the trained clusterer model.
+
+        Args:
+            models_dir: Directory to save the model
+        """
+        import joblib
+
+        logger.info("Saving clusterer model...")
+        ensure_dir_exists(models_dir)
+
+        # Save the entire clusterer object
+        model_path = os.path.join(models_dir, 'spam_clusterer.joblib')
+        joblib.dump(self, model_path)
+        logger.info(f"Clusterer model saved to {model_path}")
+
+        # Also save best k-means model separately for quick loading
+        if self.best_k and self.best_k in self.cluster_results:
+            best_kmeans = self.cluster_results[self.best_k]['kmeans']
+            best_kmeans_path = os.path.join(models_dir, f'kmeans_k{self.best_k}.joblib')
+            joblib.dump(best_kmeans, best_kmeans_path)
+            logger.info(f"Best K-Means model (k={self.best_k}) saved to {best_kmeans_path}")
 
 def run_clustering(df: pd.DataFrame) -> SpamClusterer:
     """
@@ -417,9 +441,13 @@ def run_clustering(df: pd.DataFrame) -> SpamClusterer:
     
     # Save results
     clusterer.save_cluster_results(output_dir)
-    
+
+    # Save model
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+    clusterer.save_model(models_dir)
+
     logger.info("Clustering analysis completed!")
-    
+
     return clusterer
 
 if __name__ == "__main__":

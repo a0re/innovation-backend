@@ -40,6 +40,20 @@ def load_config(config_path: str = None) -> Dict[str, Any]:
     
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
+
+    # Resolve output_dir relative to project root
+    if 'data' in config and 'output_dir' in config['data']:
+        output_dir = config['data']['output_dir']
+        # If it's a relative path, make it relative to the project root
+        if not os.path.isabs(output_dir):
+            # Find project root (where .git or outputs directory exists)
+            current = os.path.abspath(os.getcwd())
+            while current != '/':
+                if os.path.exists(os.path.join(current, '.git')) or os.path.exists(os.path.join(current, 'outputs')):
+                    config['data']['output_dir'] = os.path.join(current, output_dir)
+                    break
+                current = os.path.dirname(current)
+
     return config
 
 def setup_logging(log_level: str = "INFO") -> None:

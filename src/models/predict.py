@@ -72,21 +72,21 @@ def get_best_model_info(models_dir: str) -> tuple:
 def load_trained_model(model_name: str = None) -> object:
     """
     Load the trained spam detection model.
-    
+
     Args:
         model_name: Name of the model to load (e.g., 'multinomial_nb', 'logistic_regression', 'linear_svc')
                    If None, loads the best model from metadata
-        
+
     Returns:
         Loaded model
     """
     config = load_config()
     models_dir = os.path.join(config['data']['output_dir'], 'models')
-    
+
     if model_name is None:
         # Load best model from metadata
         best_model_name, best_score, model_file = get_best_model_info(models_dir)
-        
+
         if best_model_name is None:
             available_models = get_available_models()
             if not available_models:
@@ -99,14 +99,14 @@ def load_trained_model(model_name: str = None) -> object:
                     f"No best model metadata found. Available models: {', '.join(available_models)}\n"
                     f"Please train the model first by running: python src/models/train.py"
                 )
-        
+
         model_path = os.path.join(models_dir, model_file)
         model_display_name = f"best model ({best_model_name}, score: {best_score:.4f})"
     else:
         # Load specific model
         model_path = os.path.join(models_dir, f'{model_name}.joblib')
         model_display_name = model_name
-    
+
     if not os.path.exists(model_path):
         available_models = get_available_models()
         if not available_models:
@@ -120,11 +120,41 @@ def load_trained_model(model_name: str = None) -> object:
                 f"Available models: {', '.join(available_models)}\n"
                 f"Please train the model first by running: python src/models/train.py"
             )
-    
+
     logger.info(f"Loading {model_display_name} from {model_path}")
     model = load_model(model_path)
-    
+
     return model
+
+def load_all_models() -> dict:
+    """
+    Load all three trained models for ensemble predictions.
+
+    Returns:
+        Dictionary mapping model names to loaded models
+    """
+    config = load_config()
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+
+    model_names = ['multinomial_nb', 'logistic_regression', 'linear_svc']
+    models = {}
+
+    for model_name in model_names:
+        model_path = os.path.join(models_dir, f'{model_name}.joblib')
+
+        if os.path.exists(model_path):
+            logger.info(f"Loading {model_name} from {model_path}")
+            models[model_name] = load_model(model_path)
+        else:
+            logger.warning(f"Model '{model_name}' not found at {model_path}")
+
+    if not models:
+        raise FileNotFoundError(
+            f"No trained models found in {models_dir}.\n"
+            f"Please train the models first by running: python src/models/train.py"
+        )
+
+    return models
 
 def preprocess_message(message: str) -> str:
     """
@@ -207,20 +237,20 @@ def get_dynamic_threshold(message: str) -> float:
 def predict_message(model: object, message: str) -> tuple:
     """
     Predict whether a message is spam or not.
-    
+
     Args:
         model: Trained model
         message: Message text to classify
-        
+
     Returns:
         Tuple of (prediction, confidence_score)
     """
     # Preprocess the message
     processed_message = preprocess_message(message)
-    
+
     if not processed_message:
         return "not_spam", 0.5
-    
+
     # Get spam probability
     try:
         # For models with predict_proba
@@ -231,10 +261,10 @@ def predict_message(model: object, message: str) -> tuple:
         decision_scores = model.decision_function([processed_message])
         # Convert decision function to probability using sigmoid
         spam_prob = 1 / (1 + abs(decision_scores[0]))
-    
+
     # Use dynamic threshold
     threshold = get_dynamic_threshold(message)
-    
+
     # Make prediction based on dynamic threshold
     if spam_prob >= threshold:
         prediction = "spam"
@@ -242,8 +272,133 @@ def predict_message(model: object, message: str) -> tuple:
     else:
         prediction = "not_spam"
         confidence = 1 - spam_prob
-    
+
     return prediction, confidence
+
+def load_clusterer() -> object:
+    """
+    Load the trained spam clusterer.
+
+    Returns:
+        Loaded clusterer object or None if not found
+    """
+    config = load_config()
+    models_dir = os.path.join(config['data']['output_dir'], 'models')
+    clusterer_path = os.path.join(models_dir, 'spam_clusterer.joblib')
+
+    if not os.path.exists(clusterer_path):
+        logger.warning(f"Clusterer not found at {clusterer_path}")
+        return None
+
+    logger.info(f"Loading clusterer from {clusterer_path}")
+    clusterer = load_model(clusterer_path)
+
+    return clusterer
+
+def predict_cluster(clusterer: object, message: str) -> dict:
+    """
+    Predict which spam cluster a message belongs to.
+
+    Args:
+        clusterer: Trained SpamClusterer object
+        message: Message text to classify
+
+    Returns:
+        Dictionary containing cluster prediction and top terms
+    """
+    if clusterer is None:
+        return None
+
+    # Preprocess the message
+    processed_message = preprocess_message(message)
+
+    if not processed_message or not clusterer.vectorizer:
+        return None
+
+    try:
+        # Vectorize the message
+        X = clusterer.vectorizer.transform([processed_message])
+
+        # Get best k-means model
+        if clusterer.best_k not in clusterer.cluster_results:
+            return None
+
+        kmeans = clusterer.cluster_results[clusterer.best_k]['kmeans']
+
+        # Predict cluster
+        cluster_id = int(kmeans.predict(X)[0])
+
+        # Get distances to all cluster centers
+        distances = kmeans.transform(X)[0]
+
+        # Calculate confidence (inverse of distance to assigned cluster)
+        assigned_distance = distances[cluster_id]
+        # Normalize to 0-1 scale (closer = higher confidence)
+        max_distance = max(distances)
+        confidence = 1 - (assigned_distance / max_distance) if max_distance > 0 else 1.0
+
+        # Get top terms for this cluster
+        top_terms = clusterer.cluster_results[clusterer.best_k]['top_terms'].get(cluster_id, [])
+        top_terms_list = [{'term': term, 'score': float(score)} for term, score in top_terms[:10]]
+
+        return {
+            'cluster_id': cluster_id,
+            'confidence': confidence,
+            'top_terms': top_terms_list,
+            'total_clusters': clusterer.best_k
+        }
+
+    except Exception as e:
+        logger.error(f"Error predicting cluster: {e}")
+        return None
+
+def predict_with_all_models(models: dict, message: str) -> dict:
+    """
+    Predict using all models and return individual predictions plus ensemble result.
+
+    Args:
+        models: Dictionary of model_name -> model object
+        message: Message text to classify
+
+    Returns:
+        Dictionary containing predictions from each model and ensemble result
+    """
+    # Get predictions from each model
+    model_predictions = {}
+
+    for model_name, model in models.items():
+        prediction, confidence = predict_message(model, message)
+        model_predictions[model_name] = {
+            'prediction': prediction,
+            'confidence': confidence,
+            'is_spam': prediction == 'spam'
+        }
+
+    # Calculate ensemble prediction (majority voting)
+    spam_votes = sum(1 for pred in model_predictions.values() if pred['is_spam'])
+    total_votes = len(model_predictions)
+
+    # Ensemble decision
+    ensemble_is_spam = spam_votes > (total_votes / 2)
+    ensemble_prediction = 'spam' if ensemble_is_spam else 'not_spam'
+
+    # Average confidence from models that agree with ensemble
+    agreeing_confidences = [
+        pred['confidence'] for pred in model_predictions.values()
+        if pred['is_spam'] == ensemble_is_spam
+    ]
+    ensemble_confidence = sum(agreeing_confidences) / len(agreeing_confidences) if agreeing_confidences else 0.5
+
+    return {
+        'models': model_predictions,
+        'ensemble': {
+            'prediction': ensemble_prediction,
+            'confidence': ensemble_confidence,
+            'is_spam': ensemble_is_spam,
+            'spam_votes': spam_votes,
+            'total_votes': total_votes
+        }
+    }
 
 def format_prediction(prediction: str, confidence: float) -> str:
     """
