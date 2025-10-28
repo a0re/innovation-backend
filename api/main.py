@@ -30,6 +30,15 @@ from models.predict import (
     preprocess_message
 )
 from utils.helpers import load_config
+from database import (
+    init_database,
+    save_prediction,
+    get_statistics as get_db_statistics,
+    get_spam_examples as get_db_spam_examples,
+    get_not_spam_examples as get_db_not_spam_examples,
+    get_recent_predictions,
+    clear_all_predictions
+)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -223,6 +232,10 @@ async def startup_event():
     try:
         logger.info("Starting up Spam Detection API...")
 
+        # Initialize database
+        init_database()
+        logger.info("Database initialized")
+
         # Load the best model for backward compatibility
         model = load_trained_model()
 
@@ -320,6 +333,15 @@ async def predict_single_message(
 
         # Get preprocessed message for transparency
         processed_msg = preprocess_message(request.message)
+
+        # Save to database
+        save_prediction(
+            message=request.message,
+            processed_message=processed_msg,
+            prediction=prediction,
+            confidence=confidence,
+            is_spam=is_spam
+        )
 
         return PredictionResponse(
             message=request.message,
@@ -562,17 +584,14 @@ async def predict_batch_with_multiple_models(
 
 @app.get("/stats", response_model=StatsResponse, tags=["Statistics"])
 async def get_statistics():
-    """Get prediction statistics since server start"""
-    avg_confidence = (
-        sum(stats["confidence_scores"]) / len(stats["confidence_scores"])
-        if stats["confidence_scores"] else 0.0
-    )
+    """Get prediction statistics from database"""
+    db_stats = get_db_statistics()
 
     return StatsResponse(
-        total_predictions=stats["total_predictions"],
-        spam_detected=stats["spam_detected"],
-        not_spam_detected=stats["not_spam_detected"],
-        average_confidence=round(avg_confidence, 4)
+        total_predictions=db_stats["total_predictions"],
+        spam_detected=db_stats["spam_detected"],
+        not_spam_detected=db_stats["not_spam_detected"],
+        average_confidence=round(db_stats["average_confidence"], 4)
     )
 
 @app.delete("/stats", tags=["Statistics"])
@@ -590,22 +609,39 @@ async def reset_statistics():
 
 @app.get("/examples", tags=["General"])
 async def get_example_messages():
-    """Get example messages for testing"""
-    return {
-        "spam_examples": [
+    """Get example messages from database or defaults"""
+    # Try to get examples from database
+    spam_examples = get_db_spam_examples(limit=8)
+    not_spam_examples = get_db_not_spam_examples(limit=8)
+
+    # If database is empty, provide defaults
+    if not spam_examples:
+        spam_examples = [
             "Congratulations! You have won $1000! Click here to claim your prize now!",
             "URGENT: Your account has been suspended. Verify your identity immediately.",
             "FREE MONEY! Call now to get your cash prize. Limited time offer!",
             "You have been selected for a special offer. Reply with your bank details.",
-            "WIN A FREE IPHONE! Click this link now before it expires!"
-        ],
-        "not_spam_examples": [
+            "WIN A FREE IPHONE! Click this link now before it expires!",
+            "Act now! Limited time offer expires soon. Call this number immediately.",
+            "Your package is waiting. Click to claim your delivery reward.",
+            "Congratulations! You've been selected as a lucky winner. Reply to claim."
+        ]
+
+    if not not_spam_examples:
+        not_spam_examples = [
             "Hey, are you free for lunch tomorrow?",
             "The meeting has been rescheduled to 3pm.",
             "Thanks for your help with the project!",
             "Can you send me the report when you get a chance?",
-            "Happy birthday! Hope you have a great day!"
+            "Happy birthday! Hope you have a great day!",
+            "Reminder: Doctor's appointment tomorrow at 10am.",
+            "Your order has been shipped and will arrive in 2-3 business days.",
+            "Meeting notes from yesterday's standup are attached."
         ]
+
+    return {
+        "spam": spam_examples,
+        "not_spam": not_spam_examples
     }
 
 @app.get("/cluster/info", tags=["Clustering"])
