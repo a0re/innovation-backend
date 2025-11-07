@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
 Seed the database with fake prediction data for testing.
-Usage: python seed_database.py
+Usage: python seed_database.py --count 500
 """
 
-import sys
 import os
-sys.path.append(os.path.dirname(__file__))
-
-from faker import Faker
 import random
 from datetime import datetime, timedelta
-from database import init_database, save_prediction
+from typing import Dict
+
+from faker import Faker
+
+# Use simplified database layer
+from db_simple import SimpleDatabase
 
 fake = Faker()
 
@@ -81,20 +82,15 @@ def generate_not_spam_message():
         date=fake.date(pattern="%B %d")
     )
 
-def generate_model_results(is_spam):
+def generate_model_results(is_spam) -> Dict:
     """Generate fake model prediction results"""
     # Models are generally correct but not perfect
     base_confidence = random.uniform(0.7, 0.95) if is_spam else random.uniform(0.65, 0.9)
 
     # Add some noise to individual models
-    nb_confidence = base_confidence + random.uniform(-0.1, 0.1)
-    lr_confidence = base_confidence + random.uniform(-0.1, 0.1)
-    svc_confidence = base_confidence + random.uniform(-0.1, 0.1)
-
-    # Clamp confidences
-    nb_confidence = max(0.5, min(0.99, nb_confidence))
-    lr_confidence = max(0.5, min(0.99, lr_confidence))
-    svc_confidence = max(0.5, min(0.99, svc_confidence))
+    nb_confidence = max(0.5, min(0.99, base_confidence + random.uniform(-0.1, 0.1)))
+    lr_confidence = max(0.5, min(0.99, base_confidence + random.uniform(-0.1, 0.1)))
+    svc_confidence = max(0.5, min(0.99, base_confidence + random.uniform(-0.1, 0.1)))
 
     # Occasionally make models disagree
     if random.random() < 0.15:  # 15% disagreement
@@ -131,76 +127,81 @@ def generate_model_results(is_spam):
         }
     }
 
-def seed_database(num_records=500):
-    """Seed the database with fake predictions"""
-    print(f"🌱 Seeding database with {num_records} fake predictions...")
+def seed_database(num_records: int = 500, quiet: bool = False):
+    """Seed database using simplified storage."""
+    import logging
+    logger = logging.getLogger(__name__)
+    db = SimpleDatabase()
 
-    # Initialize database
-    init_database()
-    print("✅ Database initialized")
+    if not quiet:
+        print(f"🌱 Seeding database with {num_records} fake predictions...")
+    else:
+        logger.info(f"Seeding database with {num_records} fake predictions...")
 
-    # Generate predictions with varying timestamps over the past 30 days
     spam_count = 0
-    not_spam_count = 0
-
+    ham_count = 0
     for i in range(num_records):
-        # 40% spam, 60% not spam (realistic distribution)
         is_spam = random.random() < 0.4
-
         if is_spam:
-            message = generate_spam_message()
+            msg_template = random.choice(SPAM_TEMPLATES)
+            message = msg_template.format(
+                amount=random.randint(100, 10000),
+                amount2=random.randint(1000, 50000),
+                url=f"http://{fake.domain_name()}/{fake.uri_path()}",
+                phone=fake.phone_number(),
+                email=fake.email(),
+                product=random.choice(["IPHONE", "LAPTOP", "CAR", "VACATION", "GIFT CARD"]),
+                hours=random.randint(1, 48),
+                percent=random.choice([50, 60, 70, 80, 90]),
+                count=random.randint(5, 99)
+            )
             spam_count += 1
         else:
-            message = generate_not_spam_message()
-            not_spam_count += 1
+            msg_template = random.choice(NOT_SPAM_TEMPLATES)
+            message = msg_template.format(
+                time=fake.time(pattern="%I:%M %p"),
+                name=fake.first_name(),
+                order_id=fake.random_int(min=10000, max=99999),
+                date=fake.date(pattern="%B %d")
+            )
+            ham_count += 1
 
-        # Generate model results
         model_results = generate_model_results(is_spam)
         ensemble = model_results['ensemble']
-
-        # Generate timestamp (distributed over past 30 days)
-        days_ago = random.randint(0, 30)
-        hours_ago = random.randint(0, 23)
-        minutes_ago = random.randint(0, 59)
-        timestamp = datetime.now() - timedelta(days=days_ago, hours=hours_ago, minutes=minutes_ago)
-
-        # Cluster ID for spam (0-4 clusters)
+        processed = message.lower()
         cluster_id = random.randint(0, 4) if is_spam else None
 
-        # Save to database
-        save_prediction(
+        # Persist single record
+        db.save_prediction(
             message=message,
-            processed_message=message.lower(),  # Simple preprocessing
             prediction=ensemble['prediction'],
             confidence=ensemble['confidence'],
             is_spam=ensemble['is_spam'],
+            processed_message=processed,
             model_results=model_results,
-            cluster_id=cluster_id
+            cluster_id=cluster_id,
+            timestamp=(datetime.now() - timedelta(days=random.randint(0, 30), hours=random.randint(0, 23), minutes=random.randint(0, 59))).isoformat()
         )
 
         if (i + 1) % 100 == 0:
-            print(f"  Generated {i + 1}/{num_records} predictions...")
+            prog = f"Generated {i+1}/{num_records} predictions..."
+            if not quiet:
+                print("  " + prog)
+            else:
+                logger.info(prog)
 
-    print(f"\n✅ Successfully seeded database!")
-    print(f"📊 Statistics:")
-    print(f"   - Total: {num_records}")
-    print(f"   - Spam: {spam_count} ({spam_count/num_records*100:.1f}%)")
-    print(f"   - Not Spam: {not_spam_count} ({not_spam_count/num_records*100:.1f}%)")
-    print(f"\n💡 View the data:")
-    print(f"   - API: http://localhost:8000/stats")
-    print(f"   - Dashboard: http://localhost:5174/dashboard")
+    if not quiet:
+        print("\n✅ Seeding complete")
+        print("📊 Distribution:")
+        print(f"   Total     : {num_records}")
+        print(f"   Spam      : {spam_count} ({spam_count/num_records*100:.1f}%)")
+        print(f"   Not Spam  : {ham_count} ({ham_count/num_records*100:.1f}%)")
+    else:
+        logger.info(f"Seeded {num_records} predictions (Spam={spam_count}, Ham={ham_count})")
 
 if __name__ == "__main__":
     import argparse
-
-    parser = argparse.ArgumentParser(description="Seed the spam detection database with fake data")
-    parser.add_argument(
-        "--count",
-        type=int,
-        default=500,
-        help="Number of fake predictions to generate (default: 500)"
-    )
-
+    parser = argparse.ArgumentParser(description="Seed spam detection database")
+    parser.add_argument("--count", type=int, default=500, help="Number of records to create")
     args = parser.parse_args()
-
-    seed_database(args.count)
+    seed_database(num_records=args.count)

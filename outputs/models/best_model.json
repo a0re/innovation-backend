@@ -1,6 +1,6 @@
 {
   "best_model_name": "multinomial_nb",
   "best_score": 0.9444061723040111,
-  "timestamp": "2025-10-07T22:04:33.288430",
+  "timestamp": "2025-10-28T17:28:40.068765",
   "model_file": "multinomial_nb.joblib"
 }

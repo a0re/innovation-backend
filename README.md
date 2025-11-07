@@ -1,6 +1,6 @@
 # Spam Detection Machine Learning Project
 
-A comprehensive machine learning pipeline for spam detection using text classification and clustering analysis. This project implements multiple algorithms, feature engineering, and provides both training and prediction capabilities.
+A comprehensive spam detection system featuring a complete ML pipeline and production-ready REST API. This project implements multiple classification algorithms, clustering analysis, and provides both training and real-time prediction capabilities through FastAPI.
 
 ## 🚀 Quick Start
 
@@ -10,238 +10,306 @@ A comprehensive machine learning pipeline for spam detection using text classifi
 
 ### Installation
 
-1. **Clone the repository:**
+1. **Clone and navigate to the backend:**
    ```bash
-   git clone <repository-url>
-   cd innovation
+   cd innovation-backend
    ```
 
 2. **Create and activate a virtual environment:**
    ```bash
-   # Create virtual environment
    python -m venv spam-detection-env
-   
-   # Activate virtual environment
+
    # On Linux/Mac:
    source spam-detection-env/bin/activate
-   
+
    # On Windows:
    spam-detection-env\Scripts\activate
    ```
 
 3. **Install dependencies:**
    ```bash
+   # Install ML pipeline dependencies
    pip install -r src/requirements.txt
+
+   # Install API dependencies
+   pip install -r api/requirements.txt
    ```
 
-4. **Run the complete pipeline:**
+4. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+5. **Run the ML pipeline (train models):**
    ```bash
    python src/run_pipeline.py
    ```
 
-5. **Test prediction (optional):**
+6. **Start the API server:**
    ```bash
-   # Test with a spam message
-   python src/models/predict.py "Congratulations! You have won $1000!"
-   
-   # Test with a normal message
-   python src/models/predict.py "Hey, how are you doing today?"
+   cd api
+   python main.py
    ```
 
-That's it! The pipeline will automatically load existing data (if available) or download it, then run the complete machine learning workflow.
+The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
 
-### Quick Verification
-
-To verify the setup is working, try running a simple prediction:
-
-```bash
-# Create and activate virtual environment
-python -m venv spam-detection-env
-source spam-detection-env/bin/activate  # Linux/Mac
-pip install -r src/requirements.txt
-
-# Test prediction
-python src/models/predict.py "Congratulations! You have won $1000\!"
-```
-
-This should return a spam prediction with high confidence.
+---
 
 ## 📁 Project Structure
 
 ```
-innovation/
-├── src/                          # Source code
-│   ├── data/                     # Data processing modules
-│   │   ├── collect.py           # Data collection and download
-│   │   ├── preprocess.py        # Text preprocessing and feature engineering
-│   │   └── eda.py              # Exploratory data analysis
-│   ├── models/                   # Machine learning models
-│   │   ├── train.py            # Model training and hyperparameter tuning
-│   │   ├── evaluate.py         # Model evaluation and metrics
-│   │   ├── predict.py          # Prediction interface
-│   │   └── cluster.py          # K-means clustering analysis
-│   ├── utils/                    # Utility functions
-│   │   ├── config.yaml         # Configuration parameters
+innovation-backend/
+├── src/                          # ML Pipeline
+│   ├── data/                     # Data processing
+│   │   ├── collect.py           # Data collection/download
+│   │   ├── preprocess.py        # Text preprocessing
+│   │   └── eda.py              # Exploratory analysis
+│   ├── models/                   # ML models
+│   │   ├── train.py            # Model training
+│   │   ├── evaluate.py         # Evaluation
+│   │   ├── predict.py          # Prediction logic
+│   │   └── cluster.py          # K-means clustering
+│   ├── utils/                    # Utilities
+│   │   ├── config.yaml         # Configuration
 │   │   └── helpers.py          # Helper functions
-│   └── run_pipeline.py          # Main pipeline script
-├── outputs/                      # Generated outputs
-│   ├── eda/                     # EDA plots and analysis
+│   └── run_pipeline.py          # Main pipeline
+├── api/                          # REST API
+│   ├── main.py                  # FastAPI application
+│   ├── database.py              # Database operations
+│   ├── seed_database.py         # Test data generator
+│   └── requirements.txt         # API dependencies
+├── outputs/                      # Generated files
 │   ├── models/                  # Trained models
-│   ├── plots/                   # Clustering visualizations
+│   ├── eda/                     # Analysis plots
 │   ├── reports/                 # Evaluation reports
-│   └── raw_data.csv            # Raw dataset
-└── README.md                    # This file
+│   └── plots/                   # Clustering viz
+└── .env.example                 # Environment template
 ```
 
-## 🔧 Individual Module Usage
+---
 
-### 1. Data Collection (`src/data/collect.py`)
-Downloads and combines spam datasets from multiple sources.
+## 🌐 REST API
+
+### Starting the Server
 
 ```bash
-# Make sure virtual environment is created and activated
-python -m venv spam-detection-env
-source spam-detection-env/bin/activate  # Linux/Mac
-# or spam-detection-env\Scripts\activate  # Windows
-pip install -r src/requirements.txt
-
-python src/data/collect.py
+cd api
+python main.py
 ```
 
-**What it does:**
-- Downloads SMS spam data from UCI ML Repository
-- Downloads email spam data from Kaggle
-- Combines and normalizes datasets
-- Saves raw data to `outputs/raw_data.csv`
-- **Note:** If `raw_data.csv` already exists, it will load the existing file instead of downloading
+Or with custom settings:
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-### 2. Data Preprocessing (`src/data/preprocess.py`)
-Cleans text data and creates train/validation/test splits.
+### Interactive Documentation
 
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### API Endpoints
+
+#### **Predictions**
+- `POST /predict` - Single message prediction (best model)
+- `POST /predict/batch` - Batch predictions (up to 100 messages)
+- `POST /predict/multi-model` - Multi-model ensemble prediction
+- `POST /predict/multi-model/batch` - Batch multi-model predictions
+
+#### **Statistics & Info**
+- `GET /stats` - Prediction statistics from database
+- `DELETE /stats` - Reset statistics
+- `GET /examples` - Example spam/not-spam messages
+- `GET /cluster/info` - Clustering model information
+- `GET /health` - API health check
+- `GET /model/info` - Model metadata
+
+### Example API Usage
+
+**Single Prediction:**
+```bash
+curl -X POST "http://localhost:8000/predict/multi-model" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Congratulations! You won $1000!"}'
+```
+
+**Response:**
+```json
+{
+  "message": "Congratulations! You won $1000!",
+  "processed_message": "congratulations won",
+  "multinomial_nb": {"prediction": "spam", "confidence": 0.9876, "is_spam": true},
+  "logistic_regression": {"prediction": "spam", "confidence": 0.9654, "is_spam": true},
+  "linear_svc": {"prediction": "spam", "confidence": 0.9823, "is_spam": true},
+  "ensemble": {
+    "prediction": "spam",
+    "confidence": 0.9784,
+    "is_spam": true,
+    "spam_votes": 3,
+    "total_votes": 3
+  },
+  "cluster": {
+    "cluster_id": 0,
+    "confidence": 0.85,
+    "top_terms": [
+      {"term": "prize", "score": 0.45},
+      {"term": "winner", "score": 0.38}
+    ],
+    "total_clusters": 4
+  },
+  "timestamp": "2025-11-05T10:30:45.123456"
+}
+```
+
+### Environment Configuration
+
+Create a `.env` file:
+```env
+# Server
+HOST=0.0.0.0
+PORT=8000
+RELOAD=true
+LOG_LEVEL=info
+
+# CORS (comma-separated origins)
+CORS_ORIGINS=http://localhost:5174,http://localhost:5173
+
+# Database
+DATABASE_URL=sqlite:///./spam_detection.db
+```
+
+---
+
+## 🤖 ML Pipeline
+
+### Complete Pipeline Execution
+
+```bash
+python src/run_pipeline.py
+```
+
+This runs the full workflow:
+1. Data collection
+2. Preprocessing
+3. EDA
+4. Model training
+5. Evaluation
+6. Clustering analysis
+
+### Individual Modules
+
+#### 1. **Data Collection** (`src/data/collect.py`)
+```bash
+python src/data/collect.py
+```
+- Downloads SMS spam data (UCI ML Repository)
+- Downloads email spam data (Kaggle)
+- Combines and saves to `outputs/raw_data.csv`
+- Skips download if file exists
+
+#### 2. **Data Preprocessing** (`src/data/preprocess.py`)
 ```bash
 python src/data/preprocess.py
 ```
+- Text cleaning and normalization
+- Feature engineering (22 features)
+- SMOTE class balancing
+- Train/val/test split
+- Saves processed CSVs
 
-**What it does:**
-- Cleans and normalizes text (removes headers, special characters)
-- Creates 22 engineered features (length, word count, special characters, etc.)
-- Applies SMOTE for class balancing
-- Splits data into train/validation/test sets
-- Saves processed data to `outputs/train.csv`, `outputs/val.csv`, `outputs/test.csv`
-
-### 3. Exploratory Data Analysis (`src/data/eda.py`)
-Creates visualizations and analyzes text patterns.
-
+#### 3. **Exploratory Data Analysis** (`src/data/eda.py`)
 ```bash
 python src/data/eda.py
 ```
+- Class distribution plots
+- Message characteristics analysis
+- Word frequency analysis
+- Spam trigger word identification
+- Saves plots to `outputs/eda/`
 
-**What it does:**
-- Generates class distribution plots
-- Analyzes message characteristics
-- Creates word frequency analysis
-- Identifies spam trigger words
-- Saves all plots to `outputs/eda/`
-
-### 4. Model Training (`src/models/train.py`)
-Trains multiple classification models with hyperparameter tuning.
-
+#### 4. **Model Training** (`src/models/train.py`)
 ```bash
 python src/models/train.py
 ```
+- Trains 3 models: Multinomial NB, Logistic Regression, Linear SVM
+- Grid search hyperparameter tuning
+- 5-fold cross-validation
+- Saves best model to `outputs/models/`
 
-**What it does:**
-- Trains 3 models: Multinomial Naive Bayes, Logistic Regression, Linear SVM
-- Performs grid search for hyperparameter optimization
-- Uses 5-fold cross-validation
-- Saves best model and metadata to `outputs/models/`
-
-### 5. Model Evaluation (`src/models/evaluate.py`)
-Evaluates trained models and creates performance reports.
-
+#### 5. **Model Evaluation** (`src/models/evaluate.py`)
 ```bash
 python src/models/evaluate.py
 ```
+- Confusion matrices
+- ROC and Precision-Recall curves
+- Comprehensive metrics (accuracy, precision, recall, F1, AUC)
+- Saves reports to `outputs/reports/`
 
-**What it does:**
-- Generates confusion matrices
-- Creates ROC and Precision-Recall curves
-- Computes comprehensive metrics (accuracy, precision, recall, F1, AUC)
-- Saves evaluation plots to `outputs/reports/`
-
-### 6. Clustering Analysis (`src/models/cluster.py`)
-Performs K-means clustering on spam messages to identify subtypes.
-
+#### 6. **Clustering Analysis** (`src/models/cluster.py`)
 ```bash
 python src/models/cluster.py
 ```
+- K-means clustering on spam messages
+- Tests k values: 5, 8, 12
+- Silhouette analysis for optimal k
+- Identifies spam subtypes via TF-IDF
+- Saves visualizations to `outputs/plots/`
 
-**What it does:**
-- Clusters spam messages using K-means
-- Tests different k values (5, 8, 12)
-- Uses silhouette analysis to find optimal k
-- Identifies spam subtypes through TF-IDF analysis
-- Saves clustering visualizations to `outputs/plots/`
-
-### 7. Prediction Interface (`src/models/predict.py`)
-Command-line interface for making predictions on new messages.
-
+#### 7. **CLI Prediction** (`src/models/predict.py`)
 ```bash
-# Make sure virtual environment is created and activated
-python -m venv spam-detection-env
-source spam-detection-env/bin/activate  # Linux/Mac
-pip install -r src/requirements.txt
-
-# Predict a single message
+# Single prediction
 python src/models/predict.py "Your message here"
 
 # Interactive mode
 python src/models/predict.py
 
-# Batch prediction from file
+# Batch from file
 python src/models/predict.py --file messages.txt
 ```
 
-**What it does:**
-- Loads the best trained model
-- Preprocesses input text
-- Makes predictions with confidence scores
-- Supports interactive and batch modes
+---
 
-## 📊 Output Files
+## 🎯 Features
 
-After running the pipeline, you'll find the following outputs:
+### ML Pipeline
+- **Multiple Algorithms**: Naive Bayes, Logistic Regression, SVM
+- **Advanced Features**: 22 engineered features (text stats, special chars, etc.)
+- **Class Balancing**: SMOTE for imbalanced datasets
+- **Hyperparameter Tuning**: Grid search with cross-validation
+- **Clustering**: K-means to identify spam subtypes
+- **Comprehensive Evaluation**: Multiple metrics and visualizations
+- **Reproducible**: Fixed random seeds
 
-### Data Files
-- `outputs/raw_data.csv` - Combined raw dataset
-- `outputs/train.csv` - Training data
-- `outputs/val.csv` - Validation data  
-- `outputs/test.csv` - Test data
+### REST API
+- **Multi-Model Ensemble**: Combines predictions from 3 models
+- **Batch Processing**: Up to 100 messages per request
+- **Clustering Integration**: Identifies spam subtypes in real-time
+- **Database**: SQLite for prediction history and statistics
+- **Type-Safe**: Pydantic models for request/response validation
+- **Well-Documented**: OpenAPI/Swagger auto-generated docs
+- **Production-Ready**: Proper error handling, logging, CORS
 
-### Models
-- `outputs/models/best_model.json` - Best model metadata
-- `outputs/models/*.joblib` - Trained model files
+---
 
-### Visualizations
-- `outputs/eda/` - EDA plots (class distribution, word analysis, etc.)
-- `outputs/reports/` - Model evaluation plots (confusion matrices, ROC curves)
-- `outputs/plots/` - Clustering analysis plots
+## 📊 Performance
 
-### Reports
-- `outputs/reports/evaluation_results.csv` - Detailed performance metrics
-- `outputs/final_summary.txt` - Complete project summary
+Typical results on test set:
+- **Accuracy**: >95%
+- **F1-Score**: >0.90 for both classes
+- **ROC-AUC**: >0.95
+- **Best Model**: Usually Multinomial Naive Bayes
+
+---
 
 ## ⚙️ Configuration
 
-The project uses `src/utils/config.yaml` for configuration. Key parameters:
+Edit `src/utils/config.yaml`:
 
 ```yaml
-# Data split ratios
 preprocessing:
   test_size: 0.15
   val_size: 0.15
 
-# Model hyperparameters
 models:
   multinomial_nb:
     alpha: [0.1, 0.5, 1.0]
@@ -250,39 +318,109 @@ models:
   linear_svc:
     C: [0.5, 1, 2, 4]
 
-# Clustering parameters
 clustering:
   k_values: [5, 8, 12]
 ```
 
-## 🎯 Key Features
+---
 
-- **Multiple Algorithms**: Implements Naive Bayes, Logistic Regression, and SVM
-- **Advanced Feature Engineering**: 22 engineered features including text statistics
-- **Class Balancing**: Uses SMOTE to handle imbalanced datasets
-- **Hyperparameter Tuning**: Grid search with cross-validation
-- **Clustering Analysis**: K-means clustering to identify spam subtypes
-- **Comprehensive Evaluation**: Multiple metrics and visualizations
-- **Easy Prediction**: Command-line interface for new predictions
-- **Reproducible**: Fixed random seeds and complete automation
+## 🗄️ Database
 
-## 📈 Performance
+The API uses SQLite for development. The database stores:
+- Prediction history
+- Statistics and metrics
+- User feedback (optional)
 
-The pipeline typically achieves:
-- **Accuracy**: >95% on test set
-- **F1-Score**: >0.90 for both classes
-- **ROC-AUC**: >0.95
-- **Best Model**: Usually multinomial_nb
+**Reset database:**
+```bash
+rm spam_detection.db
+python -c "from api.database import init_database; init_database()"
+```
+
+**Seed test data:**
+```bash
+python api/seed_database.py
+```
+
+---
+
+## 🔒 Security Considerations
+
+**For Production:**
+- Configure `CORS_ORIGINS` to specific domains only
+- Implement authentication (API keys or JWT)
+- Add rate limiting middleware
+- Use PostgreSQL/MySQL instead of SQLite
+- Enable HTTPS
+- Add request logging to external service
+
+---
+
+## 🚀 Production Deployment
+
+```bash
+gunicorn api.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --access-logfile - \
+  --error-logfile -
+```
+
+**Required changes for production:**
+1. Set `RELOAD=false` in `.env`
+2. Configure database (PostgreSQL recommended)
+3. Set specific CORS origins
+4. Add authentication
+5. Add rate limiting
+6. Enable HTTPS
+
+---
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **Import Errors**: Make sure you're running from the project root directory and virtual environment is activated
-2. **Missing Dependencies**: Run `pip install -r src/requirements.txt`
-3. **Data Download Issues**: The pipeline will use existing data if available
-4. **Memory Issues**: For large datasets, consider reducing `max_features` in config
-5. **Virtual Environment Issues**: Make sure to activate the virtual environment before running any scripts
+1. **Import Errors**: Run from project root with activated venv
+2. **Missing Dependencies**: `pip install -r src/requirements.txt api/requirements.txt`
+3. **Data Download Issues**: Pipeline uses existing data if available
+4. **CORS Errors**: Update `CORS_ORIGINS` in `.env`
+5. **Database Errors**: Ensure database is initialized
 
 ### Logs
-All operations are logged to `spam_detection.log` for debugging.
+
+- All operations logged to `spam_detection.log`
+- API request logging with processing time in headers
+
+---
+
+## 📈 Output Files
+
+After running the pipeline:
+
+**Data:**
+- `outputs/raw_data.csv` - Combined raw dataset
+- `outputs/{train,val,test}.csv` - Processed splits
+
+**Models:**
+- `outputs/models/best_model.json` - Model metadata
+- `outputs/models/*.joblib` - Trained models
+
+**Visualizations:**
+- `outputs/eda/` - Exploratory analysis plots
+- `outputs/reports/` - Evaluation plots
+- `outputs/plots/` - Clustering visualizations
+
+**Reports:**
+- `outputs/reports/evaluation_results.csv` - Performance metrics
+- `outputs/final_summary.txt` - Complete summary
+
+---
+
+## 📝 License
+
+[Add your license here]
+
+## 👥 Contributors
+
+[Add contributors here]

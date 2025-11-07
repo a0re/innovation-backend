@@ -48,6 +48,16 @@ outputs/plots/clustering_silhouette_scores.csv
 *.log
 spam_detection.log
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.local
+.env.production
+
 # Temporary analysis files
 PROJECT_COMPARISON_ANALYSIS.md
 comparison_project/
