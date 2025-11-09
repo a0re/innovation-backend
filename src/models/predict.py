@@ -8,6 +8,7 @@ import os
 import joblib
 import logging
 import argparse
+import math
 from typing import Union, List
 
 # Add src directory to path for imports
@@ -251,27 +252,67 @@ def predict_message(model: object, message: str) -> tuple:
     if not processed_message:
         return "not_spam", 0.5
 
-    # Get spam probability
+    # Always get the model's direct class prediction first
     try:
-        # For models with predict_proba
+        raw_prediction = model.predict([processed_message])[0]
+    except Exception:
+        raw_prediction = "not_spam"
+
+    spam_prob = None
+
+    try:
+        # Prefer calibrated probabilities when available
         probabilities = model.predict_proba([processed_message])[0]
-        spam_prob = probabilities[1] if len(probabilities) > 1 else 0.5
+        classes = getattr(model, "classes_", None)
+
+        if classes is not None and "spam" in classes:
+            spam_index = list(classes).index("spam")
+            spam_prob = float(probabilities[spam_index])
+        elif len(probabilities) > 1:
+            spam_prob = float(probabilities[1])
+        else:
+            spam_prob = float(probabilities[0])
     except AttributeError:
-        # For models without predict_proba (like LinearSVC)
+        # For models without predict_proba (e.g. LinearSVC)
+        import numpy as np
+
         decision_scores = model.decision_function([processed_message])
-        # Convert decision function to probability using sigmoid
-        spam_prob = 1 / (1 + abs(decision_scores[0]))
+        decision_score = decision_scores[0] if isinstance(decision_scores, np.ndarray) else decision_scores
 
-    # Use dynamic threshold
-    threshold = get_dynamic_threshold(message)
+        # Convert decision function to pseudo-probability via sigmoid
+        raw_prob = 1 / (1 + np.exp(-decision_score))
 
-    # Make prediction based on dynamic threshold
-    if spam_prob >= threshold:
-        prediction = "spam"
-        confidence = spam_prob
+        # Adjust calibration around the decision boundary
+        if abs(decision_score) < 0.5:
+            if raw_prediction == "not_spam":
+                spam_prob = max(0.1, raw_prob * 0.6)
+            else:
+                spam_prob = min(0.9, raw_prob * 1.2)
+        else:
+            if raw_prediction == "not_spam":
+                spam_prob = raw_prob * 0.8
+            else:
+                spam_prob = raw_prob
+    except Exception:
+        spam_prob = None
+
+    prediction = raw_prediction if raw_prediction in {"spam", "not_spam"} else "not_spam"
+    confidence = 0.5
+
+    if spam_prob is not None and math.isfinite(spam_prob):
+        # Ensure probability stays within valid bounds
+        spam_prob = max(0.0, min(1.0, float(spam_prob)))
+
+        threshold = get_dynamic_threshold(message)
+        is_spam = spam_prob >= threshold
+        prediction = "spam" if is_spam else "not_spam"
+        confidence = spam_prob if is_spam else 1 - spam_prob
     else:
-        prediction = "not_spam"
-        confidence = 1 - spam_prob
+        # Fall back to model prediction when probability is unavailable/invalid
+        confidence = 0.7 if prediction == "spam" else 0.6
+
+    if not math.isfinite(confidence):
+        confidence = 0.5
 
     return prediction, confidence
 
@@ -295,16 +336,17 @@ def load_clusterer() -> object:
 
     return clusterer
 
-def predict_cluster(clusterer: object, message: str) -> dict:
+def predict_cluster(clusterer: object, message: str, enrich_with_names: bool = False) -> dict:
     """
     Predict which spam cluster a message belongs to.
 
     Args:
         clusterer: Trained SpamClusterer object
         message: Message text to classify
+        enrich_with_names: Whether to add cluster name metadata (default False)
 
     Returns:
-        Dictionary containing cluster prediction and top terms
+        Dictionary containing cluster prediction, top terms, and optionally name/description
     """
     if clusterer is None:
         return None
@@ -341,16 +383,78 @@ def predict_cluster(clusterer: object, message: str) -> dict:
         top_terms = clusterer.cluster_results[clusterer.best_k]['top_terms'].get(cluster_id, [])
         top_terms_list = [{'term': term, 'score': float(score)} for term, score in top_terms[:10]]
 
-        return {
+        result = {
             'cluster_id': cluster_id,
             'confidence': confidence,
             'top_terms': top_terms_list,
             'total_clusters': clusterer.best_k
         }
+        
+        # Optionally enrich with cluster names (if API context is available)
+        if enrich_with_names:
+            try:
+                # Try to import cluster_names module (only available in API context)
+                api_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'api')
+                if api_dir not in sys.path:
+                    sys.path.insert(0, api_dir)
+                from cluster_names import get_cluster_info
+                cluster_meta = get_cluster_info(cluster_id)
+                result.update({
+                    'name': cluster_meta['name'],
+                    'short_name': cluster_meta['short_name'],
+                    'description': cluster_meta['description'],
+                    'icon': cluster_meta['icon'],
+                    'color': cluster_meta['color']
+                })
+            except (ImportError, Exception):
+                # cluster_names not available, skip enrichment
+                pass
+        
+        return result
 
     except Exception as e:
         logger.error(f"Error predicting cluster: {e}")
         return None
+
+def is_legitimate_question(message: str) -> bool:
+    """
+    Check if message is a legitimate question that shouldn't be classified as spam.
+    
+    Args:
+        message: Message text to check
+        
+    Returns:
+        True if message appears to be a legitimate question
+    """
+    import re
+    
+    message_lower = message.lower().strip()
+    
+    # Check if it's a question (ends with ?)
+    if not message_lower.endswith('?'):
+        return False
+    
+    # Check for legitimate question patterns
+    legitimate_patterns = [
+        r'^(what|who|where|when|why|how|which|whose|whom)\s+',  # Question words at start
+        r'^(is|are|was|were|do|does|did|can|could|will|would|should|may|might)\s+',  # Auxiliary verbs
+        r'^(tell me|explain|describe|define|what is|what are|what does)',  # Common question starters
+    ]
+    
+    for pattern in legitimate_patterns:
+        if re.match(pattern, message_lower):
+            # Additional check: no obvious spam indicators
+            spam_indicators = [
+                r'\b(verify|suspended|account|bank|paypal|prize|lottery|million|urgent|click|password|pin)\b',
+                r'\$\d+|\£\d+',
+                r'http[s]?://',
+            ]
+            has_spam_indicators = any(re.search(pattern, message_lower) for pattern in spam_indicators)
+            
+            if not has_spam_indicators:
+                return True
+    
+    return False
 
 def predict_with_all_models(models: dict, message: str) -> dict:
     """
@@ -363,6 +467,9 @@ def predict_with_all_models(models: dict, message: str) -> dict:
     Returns:
         Dictionary containing predictions from each model and ensemble result
     """
+    # Check if this is a legitimate question
+    is_legitimate = is_legitimate_question(message)
+    
     # Get predictions from each model
     model_predictions = {}
 
@@ -388,6 +495,23 @@ def predict_with_all_models(models: dict, message: str) -> dict:
         if pred['is_spam'] == ensemble_is_spam
     ]
     ensemble_confidence = sum(agreeing_confidences) / len(agreeing_confidences) if agreeing_confidences else 0.5
+
+    # Override for legitimate questions with low confidence spam predictions
+    if is_legitimate and ensemble_is_spam and ensemble_confidence < 0.75:
+        # If it's a legitimate question but models say spam with low confidence, trust the question pattern
+        ensemble_is_spam = False
+        ensemble_prediction = 'not_spam'
+        # Use average of not_spam confidences instead
+        not_spam_confidences = [
+            pred['confidence'] for pred in model_predictions.values()
+            if not pred['is_spam']
+        ]
+        if not_spam_confidences:
+            ensemble_confidence = sum(not_spam_confidences) / len(not_spam_confidences)
+        else:
+            # If all models said spam but it's a legitimate question, use inverse of spam confidence
+            ensemble_confidence = 1 - ensemble_confidence
+        spam_votes = sum(1 for pred in model_predictions.values() if pred['is_spam'])
 
     return {
         'models': model_predictions,
