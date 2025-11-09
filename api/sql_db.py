@@ -9,32 +9,59 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from contextlib import contextmanager
+from threading import Lock
 
 logger = logging.getLogger(__name__)
 
 
 class SimpleDatabase:
-    """Simplified database interface for predictions."""
+    """
+    Simplified database interface for predictions.
+
+    Uses a thread-safe connection pattern suitable for SQLite with FastAPI.
+    For production with high concurrency, consider PostgreSQL with asyncpg.
+    """
+
+    _instance = None
+    _lock = Lock()
+
+    def __new__(cls, db_path: str = "spam_detection.db"):
+        """Singleton pattern to ensure single database instance."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self, db_path: str = "spam_detection.db"):
         """Initialize database connection."""
-        self.db_path = db_path
-        self._init_tables()
+        # Only initialize once
+        if not hasattr(self, '_initialized'):
+            self.db_path = db_path
+            self._connection_lock = Lock()
+            self._init_tables()
+            self._initialized = True
 
     @contextmanager
     def _get_connection(self):
-        """Get database connection with row factory."""
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Database error: {e}")
-            raise
-        finally:
-            conn.close()
+        """
+        Get database connection with row factory.
+        Uses lock to ensure thread-safe access to SQLite.
+        """
+        with self._connection_lock:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            conn.row_factory = sqlite3.Row
+            # Enable WAL mode for better concurrent read performance
+            conn.execute("PRAGMA journal_mode=WAL")
+            try:
+                yield conn
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Database error: {e}")
+                raise
+            finally:
+                conn.close()
 
     def _init_tables(self):
         """Initialize database tables if they don't exist."""
@@ -133,10 +160,10 @@ class SimpleDatabase:
 
             return {
                 "total_predictions": total,
-                "spam_detected": spam,
-                "ham_detected": ham,
+                "spam_count": spam,
+                "ham_count": ham,
                 "spam_rate": round(spam / total, 3) if total > 0 else 0,
-                "average_confidence": round(avg_conf, 3),
+                "avg_confidence": round(avg_conf, 3),
                 "top_clusters": [{"cluster_id": row[0], "count": row[1]} for row in top_clusters]
             }
 
@@ -145,12 +172,13 @@ class SimpleDatabase:
         Get prediction trends over time.
 
         Args:
-            period: Time period grouping (day, week, month)
+            period: Time period grouping (hour, day, week, month)
             limit: Maximum number of periods to return
 
         Returns:
             Dictionary with trend data
         """
+        # Whitelist allowed period formats to prevent SQL injection
         period_formats = {
             "hour": "strftime('%Y-%m-%d %H:00', timestamp)",
             "day": "DATE(timestamp)",
@@ -158,13 +186,17 @@ class SimpleDatabase:
             "month": "strftime('%Y-%m', timestamp)"
         }
 
-        interval = period_formats.get(period, period_formats["day"])
+        # Validate period input
+        if period not in period_formats:
+            period = "day"
+
+        interval = period_formats[period]
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # Get counts per period
-            trends = cursor.execute(f"""
+            # Get counts per period - safe because interval is from whitelist
+            query = f"""
                 SELECT
                     {interval} as period,
                     COUNT(*) as total,
@@ -174,10 +206,11 @@ class SimpleDatabase:
                 GROUP BY period
                 ORDER BY period DESC
                 LIMIT ?
-            """, (limit,)).fetchall()
+            """
+            trends = cursor.execute(query, (limit,)).fetchall()
 
             # Get cluster distribution per period if available
-            cluster_trends = cursor.execute(f"""
+            cluster_query = f"""
                 SELECT
                     {interval} as period,
                     cluster_id,
@@ -186,7 +219,8 @@ class SimpleDatabase:
                 WHERE cluster_id IS NOT NULL AND is_spam = 1
                 GROUP BY period, cluster_id
                 ORDER BY period DESC, count DESC
-            """).fetchall()
+            """
+            cluster_trends = cursor.execute(cluster_query).fetchall()
 
             # Format results
             result = {
@@ -275,3 +309,23 @@ class SimpleDatabase:
         with self._get_connection() as conn:
             count = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
             return count == 0
+    
+    def get_cluster_distribution(self) -> List[Dict[str, Any]]:
+        """
+        Get cluster distribution from database.
+        
+        Returns:
+            List of dictionaries with cluster_id and count
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cluster_counts = cursor.execute("""
+                SELECT cluster_id, COUNT(*) as count
+                FROM predictions
+                WHERE cluster_id IS NOT NULL AND is_spam = 1
+                GROUP BY cluster_id
+                ORDER BY cluster_id
+            """).fetchall()
+            
+            return [{"cluster_id": row[0], "count": row[1]} for row in cluster_counts]
