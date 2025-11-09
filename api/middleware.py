@@ -1,21 +1,3 @@
-from pydantic import BaseSettings
-from typing import List
-
-
-class Settings(BaseSettings):
-    API_TITLE: str = "Spam Detection API"
-    API_VERSION: str = "3.0.0"
-    CORS_ORIGINS: List[str] = ["http://localhost:5174", "http://localhost:3000"]
-    RATE_LIMIT_REQUESTS: int = 120
-    RATE_LIMIT_WINDOW: int = 60
-    AUTO_SEED: bool = True
-    SEED_COUNT: int = 400
-    ENABLE_MULTI_MODEL: bool = True
-
-    class Config:
-        env_file = ".env"
-
-
 """
 Middleware components for the spam detection API.
 """
